@@ -1,0 +1,1059 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Particle Duel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* Layout: lobby + round-by-round bracket on one page grid; a match is a question card beside a paddle panel, then a black 4:3 Pong field */
+:root{
+  --bg:#ECF0F6; --surface:#FFFFFF; --surface2:#F4F6FA; --ink:#121A2C; --muted:#586379; --line:#D1D8E4;
+  --red:#CF3F2C; --red-soft:#FBE4DF; --blue:#2C5CD3; --blue-soft:#DFE7FB;
+  --good:#16884B; --good-soft:#D8F1E2; --gold:#B87C06; --ballline:rgba(18,26,44,.35);
+  --field:#000000; --fieldInk:#FFFFFF;
+  --display:'Bricolage Grotesque','IBM Plex Sans KR',system-ui,sans-serif;
+  --body:'IBM Plex Sans KR','Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1320; --surface:#172034; --surface2:#1E2842; --ink:#E8EDF7; --muted:#98A3BB; --line:#2C3854;
+  --red:#FF6C58; --red-soft:#3A2024; --blue:#6B96FF; --blue-soft:#1D2B50;
+  --good:#3ED08B; --good-soft:#15362A; --gold:#F4BD3E; --ballline:rgba(0,0,0,.55); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1320; --surface:#172034; --surface2:#1E2842; --ink:#E8EDF7; --muted:#98A3BB; --line:#2C3854;
+  --red:#FF6C58; --red-soft:#3A2024; --blue:#6B96FF; --blue-soft:#1D2B50;
+  --good:#3ED08B; --good-soft:#15362A; --gold:#F4BD3E; --ballline:rgba(0,0,0,.55); color-scheme:dark}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5}
+.joinf{display:flex;flex-direction:column;gap:6px}
+.joinf label{font-weight:600}
+.joinrow{display:flex;gap:10px;flex-wrap:wrap}
+.joinrow input{font:inherit;font-size:18px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface2);color:var(--ink);flex:1 1 200px;min-width:0}
+.linkbox{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 12px;background:var(--surface2);border-radius:10px}
+.linkbox code{font-family:var(--mono);font-size:14px;overflow-wrap:anywhere;flex:1 1 200px;min-width:0}
+.setup ol{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:6px}
+#app{min-height:100%;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.1}
+p{margin:0}
+.ko{font-family:var(--body);font-weight:500;color:var(--muted)}
+.eyebrow{margin:0;font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)}
+[hidden]{display:none!important}
+button{font:inherit;color:inherit;cursor:pointer}
+button:disabled{cursor:not-allowed;opacity:.5}
+button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+kbd{font-family:var(--mono);font-size:.8em;padding:1px 6px;border:1px solid currentColor;border-radius:5px;opacity:.75}
+.fx{font-family:var(--display);font-weight:700;white-space:nowrap}
+.fx sub,.fx sup{font-size:.58em;line-height:0}
+.fx sub{vertical-align:-.28em}.fx sup{vertical-align:.62em}
+
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:10px 16px;font-weight:600;display:inline-flex;align-items:center;gap:8px;justify-content:center}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.big{padding:16px 22px;font-size:18px}
+.btn.sm{padding:6px 12px;font-size:14px}
+.btn.warn{border-color:var(--red);color:var(--red)}
+.btn.ghost{background:transparent}
+
+/* ---------- page frame ---------- */
+.wrap{max-width:1180px;margin:0 auto;padding-block:20px 48px;display:flex;flex-direction:column;gap:20px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:14px;min-width:0}
+.brand svg{width:92px;height:auto;flex:none}
+.brand h1{font-size:clamp(30px,4.4vw,46px);font-weight:800;letter-spacing:-.02em}
+.brand p{color:var(--muted);font-weight:500}
+.me{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:7px 18px;min-width:0}
+.me img{width:34px;height:34px;border-radius:50%;flex:none}
+.me span{display:flex;flex-direction:column;line-height:1.15;min-width:0}
+.me b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.role{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel h2{font-size:20px;font-weight:700;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.panel h2 .ko{font-size:15px}
+.phead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.count{font-family:var(--mono);font-size:13px;color:var(--muted)}
+.grid2{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:860px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.note{font-size:14px;color:var(--muted)}
+.note b{color:var(--ink)}
+
+/* status band */
+.status{display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:20px 24px;border-radius:16px;border:1px solid var(--line);background:var(--surface)}
+.status.go{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+.status.gold{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+.status h2{font-size:clamp(22px,3vw,30px);font-weight:800}
+.status p{color:var(--muted);margin-top:4px}
+.status .acts{display:flex;gap:8px;flex-wrap:wrap}
+
+/* lobby */
+.plist{display:flex;flex-wrap:wrap;gap:8px}
+.pchip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:var(--surface2);border:1px solid var(--line);font-weight:600;max-width:100%}
+.pchip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pchip.me{border-color:var(--ink)}
+.pchip button{border:0;background:none;padding:0 2px;color:var(--muted);font-size:17px;line-height:1}
+.empty{padding:18px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);text-align:center}
+.types{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+@media (max-width:480px){.types{grid-template-columns:minmax(0,1fr)}}
+.chk{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface2)}
+.chk input{margin-top:4px;accent-color:var(--ink);width:16px;height:16px}
+.chk span{display:flex;flex-direction:column;line-height:1.3}
+.chk b{font-size:15px}.chk small{color:var(--muted);font-size:13px}
+.plan{font-family:var(--mono);font-size:14px;padding:10px 12px;border-radius:10px;background:var(--surface2)}
+
+/* pills */
+.pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;padding:3px 10px;border-radius:999px;background:var(--surface2);color:var(--muted);border:1px solid var(--line);white-space:nowrap}
+.pill.q{background:var(--blue-soft);color:var(--blue);border-color:transparent}
+.pill.p{background:var(--red-soft);color:var(--red);border-color:transparent}
+.pill.d{background:var(--good-soft);color:var(--good);border-color:transparent}
+.pill.dot::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;animation:blink 1.2s infinite}
+@keyframes blink{50%{opacity:.25}}
+
+/* live matches */
+.live{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.lm{display:flex;flex-direction:column;gap:10px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:var(--surface2);min-width:0}
+.lm .vsl{font-family:var(--display);font-weight:700;font-size:18px;display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;min-width:0}
+.lm .vsl em{font-style:normal;color:var(--muted);font-size:14px;font-weight:500}
+.lm .row{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap}
+.lm .sub{font-size:13px;color:var(--muted)}
+.award{display:flex;gap:6px;flex-wrap:wrap;border-top:1px dashed var(--line);padding-top:10px}
+
+/* bracket */
+.bracket-scroll{overflow-x:auto;padding-bottom:6px}
+.bracket{display:flex;gap:24px;min-width:max-content;align-items:stretch}
+.round{display:flex;flex-direction:column;gap:12px;width:220px}
+.round h3{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600;display:flex;flex-direction:column}
+.round h3 span{font-family:var(--body);letter-spacing:0;text-transform:none;font-size:13px}
+.round-body{flex:1;display:flex;flex-direction:column;justify-content:space-around;gap:10px}
+.mc{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:hidden;text-align:left;padding:0;width:100%}
+.mc .r{display:flex;justify-content:space-between;gap:8px;padding:7px 12px;font-weight:500;min-width:0}
+.mc .r+.r{border-top:1px solid var(--line)}
+.mc .r span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mc .r .sc{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--muted)}
+.mc .r.win{font-weight:700}
+.mc .r.win .sc{color:var(--good)}
+.mc .r.lose{color:var(--muted)}
+.mc .r.lose span:first-child{text-decoration:line-through}
+.mc .r.mine span:first-child::after{content:" · you";font-family:var(--mono);font-size:11px;color:var(--muted)}
+.mc .foot{padding:5px 12px;border-top:1px solid var(--line);background:var(--surface2);display:flex;justify-content:space-between;align-items:center;gap:6px}
+button.mc:hover{border-color:var(--muted)}
+.mc.bye .r{color:var(--muted);font-style:italic}
+
+/* champion */
+.tile{width:min(240px,100%);aspect-ratio:1/1.08;box-sizing:border-box;border:3px solid var(--gold);border-radius:20px;background:var(--surface);position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:18px;flex:none}
+.tile .tz{position:absolute;top:12px;left:16px;font-family:var(--mono);font-size:20px;font-weight:600;color:var(--gold)}
+.tile .tsym{font-family:var(--display);font-weight:800;font-size:84px;line-height:1;color:var(--gold)}
+.tile .tname{font-family:var(--display);font-weight:800;font-size:22px;text-align:center;overflow-wrap:anywhere;line-height:1.1}
+.champ{display:flex;gap:24px;align-items:center;flex-wrap:wrap}
+
+/* how to play */
+.how ol{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:10px}
+.how li span{display:block;color:var(--muted);font-size:14px}
+details.panel{display:block}
+details.panel>*+*{margin-top:12px}
+details.how summary{cursor:pointer;font-family:var(--display);font-weight:700;font-size:20px}
+details.how[open] summary{margin-bottom:12px}
+
+/* ---------- match screens ---------- */
+.mwrap{max-width:1240px;margin:0 auto;padding-block:16px 28px;display:flex;flex-direction:column;gap:16px}
+.mhead{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.vs{font-size:clamp(24px,3.4vw,36px);font-weight:800;display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;min-width:0}
+.vs .l{color:var(--red)}.vs .r{color:var(--blue)}
+.vs em{font-style:normal;font-size:.55em;color:var(--muted);font-weight:600}
+.vs small,.you{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.quiz{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
+@media (max-width:860px){.quiz{grid-template-columns:minmax(0,1fr)}}
+.qcard{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.qtop{display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.tnum{font-family:var(--display);font-size:30px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:0;line-height:1}
+.tnum.low{color:var(--red)}
+.tbar{height:10px;border-radius:99px;background:var(--surface2);overflow:hidden;border:1px solid var(--line)}
+.tbar i{display:block;height:100%;background:var(--ink);transform-origin:left center}
+.tbar.low i{background:var(--red)}
+.prompt{font-size:clamp(22px,2.6vw,32px);font-weight:800;text-align:center}
+.prompt-ko{margin-top:-6px;text-align:center;font-size:clamp(15px,1.6vw,20px);color:var(--muted);font-weight:500}
+.stage{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;min-height:150px}
+.big{font-size:clamp(52px,8vw,104px);line-height:1}
+.big .fx{font-weight:800}
+.chips{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.chip{background:var(--surface2);border:1px solid var(--line);border-radius:14px;padding:10px 18px;display:flex;flex-direction:column;align-items:center;min-width:110px}
+.chip small{font-size:13px;color:var(--muted);font-weight:500}
+.chip b{font-family:var(--display);font-size:clamp(34px,5vw,58px);font-weight:800;line-height:1.05;font-variant-numeric:tabular-nums}
+.formrow{display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center}
+.formrow .arrow-t{font-family:var(--display);font-weight:700;font-size:clamp(22px,3vw,34px);color:var(--muted);white-space:nowrap}
+.formrow .q{color:var(--muted)}
+.hunt{font-family:var(--display);font-weight:800;font-size:clamp(44px,7vw,92px);letter-spacing:-.02em;line-height:1}
+.hunt small{display:block;font-family:var(--body);font-size:.32em;font-weight:500;color:var(--muted);letter-spacing:0;margin-top:6px}
+.model{width:min(100%,360px);height:auto}
+.legend{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;font-family:var(--mono);font-size:13px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:13px;height:13px;border-radius:50%;display:inline-block;border:1px solid var(--ballline)}
+.qopts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (max-width:560px){.qopts{grid-template-columns:minmax(0,1fr)}}
+.qopt{display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 14px;border-radius:14px;border:2px solid var(--line);background:var(--surface2);font-size:clamp(20px,2.2vw,28px);text-align:left;min-width:0}
+.qopt:hover:not(:disabled){border-color:var(--muted)}
+.qopt:disabled{cursor:default;opacity:1}
+.qopt .k{flex:none;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font-family:var(--mono);font-size:15px;font-weight:600;background:var(--ink);color:var(--bg)}
+.qopt .lab{min-width:0;display:flex;flex-direction:column;line-height:1.15}
+.opt-en{font-family:var(--display);font-weight:700}
+.opt-ko{font-size:.55em;color:var(--muted);font-weight:500}
+.num{font-family:var(--display);font-weight:800;font-variant-numeric:tabular-nums}
+.qopt.right{background:var(--good-soft);border-color:var(--good)}
+.qopt.wrong{border-color:var(--red);text-decoration:line-through;animation:shake .35s}
+.qopt.dim{opacity:.45}
+@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.fb{border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:8px;align-items:center;text-align:center}
+.fb .v{font-family:var(--display);font-weight:800;font-size:clamp(22px,2.4vw,28px)}
+.fb .v.ok{color:var(--good)}.fb .v.no{color:var(--red)}
+.fb .ex{max-width:62ch;font-size:16px}
+.fb .ex .ko{display:block;font-size:.92em;margin-top:2px}
+.waitbox{align-items:center;text-align:center;padding-block:36px}
+.waitbox h3{font-size:clamp(26px,3.4vw,40px);font-weight:800}
+
+/* paddle panel */
+.pads{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:18px;display:flex;flex-direction:column;gap:12px}
+.pads h3{font-size:18px;font-weight:700}
+.pads-row{display:flex;gap:14px;justify-content:center}
+.pp{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;flex:1;max-width:130px}
+.pp-field{position:relative;width:100%;aspect-ratio:3/4;background:var(--field);border-radius:8px;overflow:hidden}
+.pp-net{position:absolute;left:50%;top:0;bottom:0;width:2px;margin-left:-1px;background:repeating-linear-gradient(var(--fieldInk) 0 8px,transparent 8px 16px);opacity:.45}
+.pp-pad{position:absolute;top:50%;width:8px;height:var(--h);background:var(--fieldInk);transform:translateY(-50%);transition:height .9s cubic-bezier(.34,1.56,.64,1)}
+.pp-pad.l{left:12px}.pp-pad.r{right:12px}
+.pp-pop{position:absolute;left:0;right:0;top:10px;text-align:center;font-family:var(--mono);font-weight:600;font-size:15px;color:var(--fieldInk);opacity:0;pointer-events:none}
+.pp-pop.go{animation:pop 1.4s ease-out}
+.pp-field.flash{animation:flash .9s ease-out}
+@keyframes pop{0%{opacity:0;transform:translateY(12px)}20%{opacity:1;transform:none}75%{opacity:1}100%{opacity:0;transform:translateY(-8px)}}
+@keyframes flash{0%{box-shadow:0 0 0 4px var(--good)}100%{box-shadow:0 0 0 0 transparent}}
+.pp-lab{display:flex;flex-direction:column;align-items:center;line-height:1.2;min-width:0;max-width:100%}
+.pp-lab b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.pp-lab .pct{font-family:var(--mono);font-size:14px;color:var(--muted)}
+.pp.L .pp-lab b{color:var(--red)}.pp.R .pp-lab b{color:var(--blue)}
+.dots{display:flex;gap:5px}
+.dots i{width:12px;height:12px;border-radius:50%;border:2px solid var(--line)}
+.dots i.ok{background:var(--good);border-color:var(--good)}
+.dots i.no{background:var(--red);border-color:var(--red)}
+
+/* pong */
+.pbar{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:10px;align-items:center}
+.pn{font-family:var(--display);font-weight:800;font-size:clamp(18px,2.4vw,28px);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pn.L{color:var(--red)}.pn.R{color:var(--blue);text-align:right}
+.pmid{display:flex;gap:8px;align-items:center}
+.pongs{display:grid;gap:14px;align-items:center;grid-template-columns:auto minmax(0,1fr)}
+.pongs.right{grid-template-columns:minmax(0,1fr) auto}
+.pongs.right .ctrl{order:2}
+.pongs.watch{grid-template-columns:minmax(0,1fr)}
+.cvwrap{position:relative;display:flex;justify-content:center;min-width:0}
+.cvbox{position:relative}
+#cv{display:block;background:var(--field);border-radius:4px;touch-action:none;user-select:none;-webkit-user-select:none;max-width:100%}
+.cvmsg{position:absolute;inset:0;display:grid;place-items:center;color:var(--fieldInk);font-family:var(--mono);font-size:17px;text-align:center;padding:24px;pointer-events:none}
+.cvmsg:empty{display:none}
+.cvmsg span{background:var(--field);padding:6px 12px}
+.ctrl{display:flex;flex-direction:column;gap:12px}
+.arrow{width:clamp(88px,11vw,130px);height:clamp(110px,24vh,210px);border-radius:18px;border:2px solid var(--line);background:var(--surface);touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;display:grid;place-items:center;padding:0}
+.arrow svg{width:44%;height:auto;fill:currentColor;pointer-events:none}
+.arrow.held{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.phint{text-align:center;font-size:14px;color:var(--muted)}
+@media (max-width:720px), (orientation:portrait) and (max-width:1000px){
+  .pongs,.pongs.right{grid-template-columns:minmax(0,1fr)}
+  .ctrl{flex-direction:row;justify-content:center;order:2}
+  .arrow{height:96px;width:min(42vw,200px)}
+}
+.result{max-width:600px;width:100%;margin:4vh auto 0;align-items:center;text-align:center;padding:32px}
+.result h2{font-size:clamp(32px,5vw,52px);font-weight:800}
+.fscore{font-family:var(--mono);font-size:clamp(44px,7vw,72px);font-weight:600;font-variant-numeric:tabular-nums;line-height:1}
+.fscore .l{color:var(--red)}.fscore .r{color:var(--blue)}
+.result .acts{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.switch{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:12px;z-index:40;max-width:calc(100% - 32px);font-weight:600;box-sizing:border-box}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <radialGradient id="g-H" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#C3C8D2"/></radialGradient>
+    <radialGradient id="g-C" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#6A6F7A"/><stop offset="1" stop-color="#1C1F25"/></radialGradient>
+    <radialGradient id="g-N" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#7DA2FF"/><stop offset="1" stop-color="#2546B5"/></radialGradient>
+    <radialGradient id="g-O" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#FF7C68"/><stop offset="1" stop-color="#B3281A"/></radialGradient>
+    <radialGradient id="g-Cl" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#7EE07F"/><stop offset="1" stop-color="#1F842A"/></radialGradient>
+  </defs>
+</svg>
+
+<div id="app"></div>
+
+<!-- Firebase SDK (compat build) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+/* =====================================================================
+   ① Firebase 설정 붙여 넣기
+   Firebase 콘솔 → 프로젝트 설정 → 내 앱(웹) → SDK 설정 및 구성 → "구성(Config)"에 나오는
+   firebaseConfig 값을 아래 따옴표 안에 그대로 복사하세요.
+   ===================================================================== */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDj0QgFdi8_dQwLsA7Qo91fzBEEDX6F54k",
+  authDomain: "pong-2ba3d.firebaseapp.com",
+  databaseURL: "https://pong-2ba3d-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "pong-2ba3d",
+  storageBucket: "pong-2ba3d.firebasestorage.app",
+  messagingSenderId: "791396574162",
+  appId: "1:791396574162:web:21b225d9decf4f9656de0b"
+};
+
+/* ================= seeded randomness ================= */
+let RNG=Math.random;
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function hashStr(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
+function withSeed(seed,fn){const prev=RNG;RNG=mulberry(seed);try{return fn()}finally{RNG=prev}}
+const rnd=a=>a[Math.floor(RNG()*a.length)];
+const shuffle=a=>{a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(RNG()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const uniq=a=>[...new Set(a)];
+const $=s=>document.querySelector(s);
+const app=document.getElementById('app');
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ================= chemistry data ================= */
+const ZN={H:1,He:2,Li:3,Be:4,B:5,C:6,N:7,O:8,F:9,Ne:10,Na:11,Mg:12,Al:13,Si:14,P:15,S:16,Cl:17,Ar:18,K:19,Ca:20,Fe:26,Cu:29};
+const SYM={};for(const k in ZN)SYM[ZN[k]]=k;
+const EN={H:'hydrogen',He:'helium',Li:'lithium',Be:'beryllium',B:'boron',C:'carbon',N:'nitrogen',O:'oxygen',F:'fluorine',Ne:'neon',Na:'sodium',Mg:'magnesium',Al:'aluminum',Si:'silicon',P:'phosphorus',S:'sulfur',Cl:'chlorine',Ar:'argon',K:'potassium',Ca:'calcium',Fe:'iron',Cu:'copper'};
+const KO={H:'수소',He:'헬륨',Li:'리튬',Be:'베릴륨',B:'붕소',C:'탄소',N:'질소',O:'산소',F:'플루오린',Ne:'네온',Na:'나트륨',Mg:'마그네슘',Al:'알루미늄',Si:'규소',P:'인',S:'황',Cl:'염소',Ar:'아르곤',K:'칼륨',Ca:'칼슘',Fe:'철',Cu:'구리'};
+const ATOMS=['H','He','C','N','O','Ne','Na','Mg','Al','S','Cl','Ar','K','Ca','Fe','Cu'].map(f=>({f,c:0,kind:'atom',en:EN[f]+' atom',ko:KO[f]+' 원자'}));
+const MOLS=[['H2','hydrogen','수소'],['O2','oxygen','산소'],['N2','nitrogen','질소'],['Cl2','chlorine','염소'],['H2O','water','물'],['CO2','carbon dioxide','이산화 탄소'],['NH3','ammonia','암모니아'],['CH4','methane','메테인'],['O3','ozone','오존'],['H2O2','hydrogen peroxide','과산화 수소'],['HCl','hydrogen chloride','염화 수소'],['CO','carbon monoxide','일산화 탄소'],['SO2','sulfur dioxide','이산화 황'],['C6H12O6','glucose','포도당']].map(([f,en,ko])=>({f,c:0,kind:'molecule',en,ko}));
+const IONS=[['Li',1,'lithium ion','리튬 이온'],['Na',1,'sodium ion','나트륨 이온'],['K',1,'potassium ion','칼륨 이온'],['Mg',2,'magnesium ion','마그네슘 이온'],['Ca',2,'calcium ion','칼슘 이온'],['Al',3,'aluminum ion','알루미늄 이온'],['F',-1,'fluoride ion','플루오린화 이온'],['Cl',-1,'chloride ion','염화 이온'],['O',-2,'oxide ion','산화 이온'],['S',-2,'sulfide ion','황화 이온'],['Fe',3,'iron(III) ion','철(Ⅲ) 이온'],['Cu',2,'copper(II) ion','구리(Ⅱ) 이온'],['NH4',1,'ammonium ion','암모늄 이온'],['OH',-1,'hydroxide ion','수산화 이온'],['SO4',-2,'sulfate ion','황산 이온'],['CO3',-2,'carbonate ion','탄산 이온'],['NO3',-1,'nitrate ion','질산 이온']].map(([f,c,en,ko])=>({f,c,kind:'ion',en,ko}));
+const MONO=IONS.filter(i=>i.f in ZN);
+const RAD={H:13,C:21,N:21,O:21,Cl:26};
+const MODELS={H2:[['H',89,60],['H',111,60]],O2:[['O',81,60],['O',119,60]],N2:[['N',81,60],['N',119,60]],Cl2:[['Cl',77,60],['Cl',123,60]],HCl:[['Cl',92,60],['H',123,60]],CO:[['C',81,60],['O',119,60]],H2O:[['O',100,54],['H',70,78],['H',130,78]],CO2:[['O',58,60],['O',142,60],['C',100,60]],NH3:[['H',70,74],['H',130,74],['N',100,56],['H',100,90]],CH4:[['H',100,28],['H',66,80],['H',134,80],['C',100,62],['H',100,96]],O3:[['O',64,74],['O',136,74],['O',100,52]]};
+const BALL={H:'#E9ECF2',C:'#3A3E47',N:'#3E68E0',O:'#E2493A',Cl:'#3DB44A'};
+
+function fmt(f,c=0){let h=f.replace(/(\d+)/g,'<sub>$1</sub>');if(c){const m=Math.abs(c);h+=`<sup>${m>1?m:''}${c>0?'+':'−'}</sup>`}return `<span class="fx">${h}</span>`}
+function countAtoms(f){const o={};f.replace(/([A-Z][a-z]?)(\d*)/g,(_,e,n)=>{o[e]=(o[e]||0)+(n?+n:1)});return o}
+const total=f=>Object.values(countAtoms(f)).reduce((a,b)=>a+b,0);
+const sgn=c=>c>0?'+'+c:c<0?'−'+Math.abs(c):'0';
+const KOK=t=>`<span class="ko">${t}</span>`;
+function mk(correct,ds,numeric){
+  ds=uniq(ds.filter(d=>d!==correct));
+  let opts=[correct,...shuffle(ds).slice(0,3)];
+  if(numeric)opts.sort((a,b)=>a-b);else opts=shuffle(opts);
+  return{options:opts.map(o=>numeric?`<span class="num">${o}</span>`:o),answer:opts.indexOf(correct)};
+}
+function modelSVG(k){let s=`<svg class="model" viewBox="0 0 200 120" role="img" aria-label="molecule model">`;for(const [el,x,y] of MODELS[k])s+=`<circle cx="${x}" cy="${y}" r="${RAD[el]}" fill="url(#g-${el})" stroke="var(--ballline)" stroke-width="1.2"/>`;return s+'</svg>'}
+
+const TYPES={classify:['Atom, molecule or ion?','원자·분자·이온 구별'],count:['Count the atoms','원자 개수 세기'],pe:['Protons & electrons','양성자·전자로 입자 찾기'],electrons:['Electrons in an ion','이온의 전자 수'],form:['Ion maker','이온 만들기'],odd:['Find the one','골라내기'],model:['Ball models','분자 모형']};
+const WEIGHT={classify:2,count:1,pe:1,electrons:1,form:1,odd:1,model:1};
+const ALLTYPES=Object.fromEntries(Object.keys(TYPES).map(k=>[k,true]));
+
+const GEN={
+  classify(){
+    const s=rnd([...ATOMS,...MOLS,...IONS]);
+    const labels=[['atom','Atom','원자'],['molecule','Molecule','분자'],['ion','Ion','이온']];
+    let why;
+    if(s.kind==='atom')why=`One atom, no charge → atom.`+KOK('전하가 없는 원자 1개 → 원자');
+    else if(s.kind==='molecule'){const n=total(s.f),one=Object.keys(countAtoms(s.f)).length===1;why=`${n} atoms bonded together, no charge${one?' (same element, still a molecule)':''} → molecule.`+KOK(`원자 ${n}개가 결합, 전하 없음${one?' (같은 원소여도 분자)':''} → 분자`)}
+    else if(!(s.f in ZN))why=`Several atoms, but the whole group carries a charge → ion.`+KOK('여러 원자로 되어 있지만 전하를 띠므로 → 이온 (다원자 이온)');
+    else why=`It carries a ${s.c>0?'positive':'negative'} charge → ion.`+KOK(`전하를 띠므로 → ${s.c>0?'양이온':'음이온'}`);
+    return{key:'c'+s.f+s.c,prompt:'Atom, molecule, or ion?',ko:'원자, 분자, 이온 중 무엇일까?',stage:`<div class="big">${fmt(s.f,s.c)}</div>`,
+      options:labels.map(l=>`<span class="opt-en">${l[1]}</span><span class="opt-ko">${l[2]}</span>`),answer:labels.findIndex(l=>l[0]===s.kind),
+      explain:`<b>${fmt(s.f,s.c)}</b> ${s.en} (${s.ko}). ${why}`};
+  },
+  count(){
+    const s=rnd([...MOLS,...IONS.filter(i=>!(i.f in ZN))]);
+    const ca=countAtoms(s.f),n=total(s.f),distinct=Object.keys(ca).length;
+    const digitSum=s.f.replace(/\D/g,'').split('').reduce((a,b)=>a+ +b,0);
+    const {options,answer}=mk(n,[n-1,n+1,n+2,n-2,distinct,digitSum].filter(x=>x>0),true);
+    const parts=Object.entries(ca).map(([e,k])=>`${e} ${k}`).join(' + ');
+    return{key:'n'+s.f,prompt:'How many atoms are in one particle?',ko:'이 입자 1개에 들어 있는 원자는 모두 몇 개?',stage:`<div class="big">${fmt(s.f,s.c)}</div>`,options,answer,
+      explain:`<b>${fmt(s.f,s.c)}</b> ${s.en}: ${parts} = <b>${n}</b> atoms.`+KOK(`${s.ko}: ${parts} = 원자 ${n}개`)};
+  },
+  pe(){
+    let sym,c;
+    if(RNG()<.75){const i=rnd(MONO.filter(i=>ZN[i.f]<=20));sym=i.f;c=i.c}
+    else{sym=rnd(['H','He','C','N','O','F','Ne','Na','Mg','Al','S','Cl','Ar','K','Ca']);c=0}
+    const p=ZN[sym],e=p-c,correct=fmt(sym,c),d=[];
+    if(c){d.push(fmt(sym,0),fmt(sym,-c),fmt(sym,c>0?c+1:c-1));if(SYM[e]&&SYM[e]!==sym&&e<=20)d.push(fmt(SYM[e],0))}
+    else{d.push(fmt(sym,1),fmt(sym,-1));if(SYM[p+1]&&p+1<=20)d.push(fmt(SYM[p+1],0));if(SYM[p-1])d.push(fmt(SYM[p-1],0))}
+    const {options,answer}=mk(correct,d);
+    return{key:'p'+sym+c,prompt:'Which particle is this?',ko:'이 입자는 무엇일까?',
+      stage:`<div class="chips"><div class="chip"><small>Protons · 양성자</small><b>${p}</b></div><div class="chip"><small>Electrons · 전자</small><b>${e}</b></div></div>`,options,answer,
+      explain:`${p} protons → ${EN[sym]} (${sym}). Charge = ${p} − ${e} = ${sgn(c)} → <b>${correct}</b>${c?'':' (neutral atom)'}`+KOK(`양성자 ${p}개 → ${KO[sym]}. 전하 = ${p} − ${e} = ${sgn(c)} → ${c?(c>0?'양이온':'음이온'):'중성 원자'}`)};
+  },
+  electrons(){
+    const i=rnd(MONO),p=ZN[i.f],e=p-i.c,m=Math.abs(i.c);
+    const {options,answer}=mk(e,[p,p+i.c,e+1,e-1,e+2].filter(x=>x>=0),true);
+    return{key:'e'+i.f,prompt:'How many electrons does this ion have?',ko:'이 이온의 전자는 몇 개일까?',stage:`<div class="big">${fmt(i.f,i.c)}</div>`,options,answer,
+      explain:`A ${EN[i.f]} atom has ${p} electrons. It ${i.c>0?'loses':'gains'} ${m} → <b>${e}</b>.`+KOK(`${KO[i.f]} 원자의 전자 ${p}개에서 ${m}개를 ${i.c>0?'잃어':'얻어'} → ${e}개`)};
+  },
+  form(){
+    const i=rnd(MONO),m=Math.abs(i.c),lose=i.c>0;
+    const d=[fmt(i.f,-i.c),fmt(i.f,0),fmt(i.f,lose?i.c+1:i.c-1)];if(m>1)d.push(fmt(i.f,lose?i.c-1:i.c+1));
+    const {options,answer}=mk(fmt(i.f,i.c),d);
+    const cap=EN[i.f][0].toUpperCase()+EN[i.f].slice(1);
+    return{key:'f'+i.f+i.c,prompt:`${cap} atom ${lose?'loses':'gains'} ${m} electron${m>1?'s':''}. What forms?`,ko:`${KO[i.f]} 원자가 전자 ${m}개를 ${lose?'잃으면':'얻으면'}?`,
+      stage:`<div class="formrow"><span class="big">${fmt(i.f)}</span><span class="arrow-t">${lose?'−':'+'} ${m}e<sup>−</sup> →</span><span class="big q">?</span></div>`,options,answer,
+      explain:lose?`Losing electrons leaves more protons than electrons → positive ion (cation): <b>${fmt(i.f,i.c)}</b>.`+KOK('전자를 잃으면 양성자가 더 많아져 → 양이온')
+                  :`Gaining electrons gives more electrons than protons → negative ion (anion): <b>${fmt(i.f,i.c)}</b>.`+KOK('전자를 얻으면 전자가 더 많아져 → 음이온')};
+  },
+  odd(){
+    const kinds=[['molecule',MOLS,'MOLECULE','분자를 찾아라!','분자','Bonded atoms with no charge.','원자가 결합, 전하 없음'],['ion',IONS,'ION','이온을 찾아라!','이온','It has a + or − charge.','+ 또는 − 전하가 있음'],['atom',ATOMS,'ATOM','원자를 찾아라!','원자','One atom with no charge.','원자 1개, 전하 없음']];
+    const t=rnd(kinds),target=rnd(t[1]);
+    const others=shuffle([...ATOMS,...MOLS,...IONS].filter(s=>s.kind!==t[0])).slice(0,3);
+    const {options,answer}=mk(fmt(target.f,target.c),others.map(s=>fmt(s.f,s.c)));
+    return{key:'o'+t[0]+target.f+target.c,prompt:`Which one is ${t[0]==='molecule'?'a':'an'} ${t[0]}?`,ko:t[3],stage:`<div class="hunt">${t[2]}<small>${t[4]}</small></div>`,options,answer,
+      explain:`<b>${fmt(target.f,target.c)}</b> ${target.en}. ${t[5]}`+KOK(`${target.ko}: ${t[6]}`)};
+  },
+  model(){
+    const keys=Object.keys(MODELS),k=rnd(keys);
+    const {options,answer}=mk(fmt(k),shuffle(keys.filter(x=>x!==k)).map(x=>fmt(x)));
+    const mol=MOLS.find(m=>m.f===k),ca=countAtoms(k);
+    return{key:'m'+k,prompt:'Which formula matches this model?',ko:'이 모형에 맞는 화학식은?',
+      stage:modelSVG(k)+`<div class="legend">${['H','C','N','O','Cl'].map(e=>`<span><i style="background:${BALL[e]}"></i>${e}</span>`).join('')}</div>`,options,answer,
+      explain:`${Object.entries(ca).map(([e,n])=>`${n} ${e}`).join(', ')} → <b>${fmt(k)}</b> ${mol.en}.`+KOK(`${mol.ko}: ${Object.entries(ca).map(([e,n])=>`${KO[e]} ${n}`).join(', ')}`)};
+  }
+};
+function genQuestion(types,used){
+  const en=Object.keys(TYPES).filter(k=>types&&types[k]);if(!en.length)en.push('classify');
+  const bag=[];en.forEach(k=>{for(let i=0;i<WEIGHT[k];i++)bag.push(k)});
+  let q;for(let t=0;t<30;t++){const type=rnd(bag);q=GEN[type]();q.type=type;if(!used||!used.has(q.key))break}
+  if(used)used.add(q.key);return q;
+}
+function quizFor(m){return withSeed(hashStr('q:'+m.id),()=>{const used=new Set();return [0,1,2].map(()=>genQuestion(m.types||ALLTYPES,used))})}
+
+/* ================= constants ================= */
+const QN=3,QTIME=20000,BASE=50,BONUS=10,PFIELD=300;
+const padPct=c=>Math.round((BASE+BONUS*c)/BASE*100);
+const lenPct=c=>((BASE+BONUS*c)/PFIELD*100).toFixed(1);
+const qid=(mid,uid)=>mid+'~'+uid;
+
+/* ================= sound ================= */
+let AC=null,MUTED=false;
+try{MUTED=localStorage.getItem('pd-muted')==='1'}catch(e){}
+function ensureAudio(){try{if(!AC)AC=new(window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume()}catch(e){}}
+document.addEventListener('pointerdown',ensureAudio,{passive:true});
+document.addEventListener('keydown',ensureAudio);
+function beep(f,d,type='square',vol=.12){if(MUTED||!AC)return;try{const t=AC.currentTime,o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.value=f;g.gain.setValueAtTime(vol,t);g.gain.setValueAtTime(vol,t+d);g.gain.linearRampToValueAtTime(0,t+d+.01);o.connect(g).connect(AC.destination);o.start(t);o.stop(t+d+.02)}catch(e){}}
+const sfx={paddle:()=>beep(459,.05),wall:()=>beep(226,.03),point:()=>beep(490,.26),good:()=>{beep(660,.08,'sine',.18);setTimeout(()=>beep(880,.12,'sine',.18),90)},bad:()=>beep(170,.18,'square',.08)};
+
+/* ================= Firebase connection + data ================= */
+const C={ready:false,db:null,uid:null,isHost:false,wantHost:new URLSearchParams(location.search).has('host'),setup:false,fail:null};
+const D={host:null,hostLoaded:false,game:null,gameLoaded:false,slow:false,err:null,tid:null,playersAll:{},players:[],matchesAll:{},matches:{},quizAll:{},quiz:{},quizLoaded:false,matchesLoaded:false};
+let MV=null;
+let advancing=false;
+const autoWatched={};
+
+function toast(msg){let t=$('#toast');if(!t){t=document.createElement('div');t.id='toast';t.className='toast';t.setAttribute('role','status');document.body.appendChild(t)}t.textContent=msg;t.hidden=false;clearTimeout(t._h);t._h=setTimeout(()=>{t.hidden=true},4200)}
+
+const writers={};
+function writeDoc(path,data,mode='set'){
+  if(!C.db)return Promise.resolve();
+  const w=writers[path]||(writers[path]={busy:false,next:null,p:null});
+  if(w.next&&w.next.mode==='update'&&mode==='update')w.next={mode,data:{...w.next.data,...data}};else w.next={mode,data};
+  if(w.busy)return w.p;
+  w.busy=true;
+  w.p=(async()=>{while(w.next){const {mode,data}=w.next;w.next=null;try{const ref=C.db.ref(path);if(mode==='update')await ref.update(data);else await ref.set(data)}catch(e){toast('Couldn’t save. Check the connection. · 저장하지 못했습니다.')}}w.busy=false})();
+  return w.p;
+}
+
+async function boot(){
+  renderHome();
+  if(!FIREBASE_CONFIG.apiKey||!FIREBASE_CONFIG.databaseURL){C.setup=true;C.ready=true;renderHome();return}
+  if(typeof firebase==='undefined'){C.fail='The Firebase library didn’t load. Check the internet connection. · Firebase를 불러오지 못했습니다.';C.ready=true;renderHome();return}
+  try{
+    firebase.initializeApp(FIREBASE_CONFIG);
+    const cred=await firebase.auth().signInAnonymously();
+    C.uid=((cred&&cred.user)||firebase.auth().currentUser).uid;
+    C.db=firebase.database();
+  }catch(e){C.fail=(e&&(e.code||e.message))||'unknown error';C.ready=true;renderHome();return}
+  C.ready=true;subscribeAll();renderHome();
+}
+function subscribeAll(){
+  const t=setTimeout(()=>{D.slow=true;if(!D.gameLoaded)renderHome()},10000);
+  const on=(path,cb)=>C.db.ref(path).on('value',s=>{cb(s.val());onData()},e=>{D.err=(e&&e.code)||'error';D.gameLoaded=D.hostLoaded=true;clearTimeout(t);onData()});
+  on('host',v=>{D.host=typeof v==='string'?v:null;D.hostLoaded=true;C.isHost=!!C.uid&&D.host===C.uid});
+  on('game',v=>{clearTimeout(t);D.slow=false;D.game=v&&typeof v==='object'?v:null;D.gameLoaded=true;D.tid=(D.game&&D.game.tid)||null;recompute()});
+  on('players',v=>{D.playersAll=v&&typeof v==='object'?v:{};recompute()});
+  on('matches',v=>{D.matchesAll=v&&typeof v==='object'?v:{};D.matchesLoaded=true;recompute()});
+  on('quiz',v=>{D.quizAll=v&&typeof v==='object'?v:{};D.quizLoaded=true;recompute()});
+}
+function recompute(){
+  const tid=D.tid;
+  D.players=Object.entries(D.playersAll).filter(([,p])=>p&&p.tid===tid).map(([uid,p])=>({uid,...p})).sort((x,y)=>(x.at||0)-(y.at||0));
+  const ms={};for(const [id,m] of Object.entries(D.matchesAll))if(m&&m.tid===tid)ms[id]={id,...m};D.matches=ms;
+  const qz={};for(const [k,q] of Object.entries(D.quizAll))if(q&&q.tid===tid)qz[k]=q;D.quiz=qz;
+}
+/* Live match channel: each player writes live/<match>/<side> about 20 times a second; it is removed on disconnect. */
+function liveRoom(mid){
+  const base=C.db.ref('live/'+mid),peers={},offs=[],watching=new Set();
+  let mine=null,lastSent='',timer=0,lastAt=0,dcSide=null,left=false;
+  function flush(){
+    timer=0;lastAt=Date.now();if(left||!mine||(mine.side!==0&&mine.side!==1))return;
+    const s=JSON.stringify(mine);if(s===lastSent)return;lastSent=s;
+    const r=base.child(String(mine.side));
+    if(dcSide!==mine.side){dcSide=mine.side;try{r.onDisconnect().remove()}catch(e){}}
+    r.set(JSON.parse(s)).catch(()=>{});
+  }
+  return{
+    watch(sides){for(const sd of sides){if(watching.has(sd))continue;watching.add(sd);const r=base.child(String(sd));const f=r.on('value',snap=>{const v=snap.val();if(v&&typeof v==='object')peers[sd]={by:v.uid||null,isMe:v.uid===C.uid,sameTab:false,presence:v,updatedAt:Date.now()};else delete peers[sd]});offs.push(()=>r.off('value',f))}},
+    peers:()=>Object.values(peers),
+    presence(patch){if(left)return Promise.resolve();const n={...(mine||{})};for(const k in patch){if(patch[k]===null)delete n[k];else n[k]=patch[k]}mine=n;const now=Date.now();if(now-lastAt>=50)flush();else if(!timer)timer=setTimeout(flush,50-(now-lastAt));return Promise.resolve()},
+    leave(){left=true;clearTimeout(timer);offs.forEach(f=>f());if(dcSide!==null)base.child(String(dcSide)).remove().catch(()=>{});return Promise.resolve()}
+  };
+}
+
+let dataPending=false;
+function onData(){if(dataPending)return;dataPending=true;setTimeout(()=>{dataPending=false;handleData()},30)}
+function handleData(){
+  refreshNames();
+  if(C.isHost)hostAdvance();
+  const mine=myActiveMatch();
+  if(mine&&!(MV&&MV.mid===mine.id&&MV.side>=0)){
+    if(MV&&MV.screen==='result'&&Date.now()-MV.resultAt<5000){setTimeout(onData,5100-(Date.now()-MV.resultAt))}
+    else{openMatch(mine.id,false);return}
+  }
+  if(MV){matchUpdate();return}
+  const bw=byeAutoWatch();if(bw){openMatch(bw,true);return}
+  renderHome();
+}
+
+/* ================= names ================= */
+function nameOf(id){if(!id)return '—';const p=D.playersAll[id];return (p&&typeof p.name==='string'&&p.name.trim())||'Player'}
+function nameSpan(id){return `<span data-uid="${esc(id||'')}">${esc(nameOf(id))}</span>`}
+function paintNames(){document.querySelectorAll('[data-uid]').forEach(el=>{const n=nameOf(el.dataset.uid);if(el.textContent!==n)el.textContent=n});document.querySelectorAll('[data-uid-initial]').forEach(el=>{el.textContent=[...nameOf(el.dataset.uidInitial)][0]||'?'})}
+function refreshNames(){}
+
+/* ================= tournament logic ================= */
+function phaseOf(m){
+  if(m.w!=null)return 'done';
+  const qa=D.quiz[qid(m.id,m.a)],qb=D.quiz[qid(m.id,m.b)];
+  if(m.status==='pong'||(qa&&qa.done&&qb&&qb.done))return 'pong';
+  return 'quiz';
+}
+function myActiveMatch(){if(!C.uid||!D.game||D.game.status!=='running')return null;for(const m of Object.values(D.matches))if(m.w==null&&(m.a===C.uid||m.b===C.uid))return m;return null}
+function curRound(){const r=(D.game&&D.game.rounds)||[];return r[r.length-1]||null}
+function liveMatches(){const rd=curRound();if(!rd||!D.game||D.game.status!=='running')return [];return rd.mids.map(id=>D.matches[id]).filter(m=>m&&m.w==null)}
+function byeAutoWatch(){const rd=curRound();if(!rd||!C.uid||rd.bye!==C.uid)return null;const key=D.tid+':'+rd.r;if(autoWatched[key])return null;const live=liveMatches();if(!live.length)return null;autoWatched[key]=true;return live[0].id}
+function roundLabel(rd){const n=rd.n;if(n<=2)return['Final','결승'];if(n<=4)return['Semifinal','준결승'];if(n<=8)return['Quarterfinal','8강'];return[`Round ${rd.r+1}`,`${rd.r+1}라운드`]}
+function planRounds(n){const seq=[n];let byes=0;while(n>1){if(n%2)byes++;n=Math.ceil(n/2);seq.push(n)}return{seq,rounds:seq.length-1,byes}}
+const newTid=()=>'t'+Date.now().toString(36);
+const plain=o=>JSON.parse(JSON.stringify(o||{}));
+
+async function createRound(r,ids,g){
+  const order=withSeed(hashStr(g.tid+':order:'+r),()=>shuffle(ids));
+  let bye=null;
+  if(order.length%2){
+    const cnt={};(g.rounds||[]).forEach(rd=>{if(rd.bye)cnt[rd.bye]=(cnt[rd.bye]||0)+1});
+    const min=Math.min(...order.map(id=>cnt[id]||0));
+    const cands=order.filter(id=>(cnt[id]||0)===min);
+    bye=withSeed(hashStr(g.tid+':bye:'+r),()=>rnd(cands));
+    order.splice(order.indexOf(bye),1);
+  }
+  const mids=[];
+  for(let i=0;i<order.length;i+=2){
+    const mid=`${g.tid}-r${r}-m${i/2}`;mids.push(mid);
+    await C.db.ref('matches/'+mid).set({tid:g.tid,r,i:i/2,a:order[i],b:order[i+1],w:null,status:'quiz',score:[0,0],types:g.types||ALLTYPES,at:Date.now()});
+  }
+  await C.db.ref('game').update({rounds:[...(g.rounds||[]),{r,mids,bye,n:ids.length}]});
+}
+async function hostAdvance(){
+  if(!C.isHost||advancing||!C.db)return;
+  const g=D.game;if(!g||g.status!=='running'||!g.rounds||!g.rounds.length||!D.matchesLoaded)return;
+  const r=g.rounds.length-1,rd=g.rounds[r];
+  const ms=rd.mids.map(id=>D.matches[id]);
+  if(ms.some(m=>!m||m.w==null))return;
+  const winners=ms.map(m=>m.w);if(rd.bye)winners.push(rd.bye);
+  advancing=true;
+  try{
+    if(winners.length===1)await C.db.ref('game').update({status:'done',champion:winners[0],endedAt:Date.now()});
+    else await createRound(r+1,winners,plain(g));
+  }catch(e){toast('Couldn’t draw the next round. Try “Draw next round”. · 다음 라운드 생성 실패')}
+  finally{advancing=false}
+}
+async function hostStart(){
+  const g=D.game,ids=D.players.map(p=>p.uid);
+  if(!g||ids.length<2||advancing)return;
+  advancing=true;
+  try{
+    const fresh={...plain(g),status:'running',rounds:[],champion:null,startedAt:Date.now()};
+    await C.db.ref('game').set(fresh);
+    await createRound(0,ids,fresh);
+  }catch(e){toast('Couldn’t start the tournament. · 토너먼트를 시작하지 못했습니다.')}
+  finally{advancing=false}
+}
+async function hostNewLobby(){
+  const types=(D.game&&D.game.types)||ALLTYPES;
+  try{await C.db.ref().update({game:{tid:newTid(),status:'lobby',types,at:Date.now()},players:null,matches:null,quiz:null,live:null})}catch(e){toast('Couldn’t open the lobby. · 대기실을 열지 못했습니다.')}
+}
+async function award(mid,side){
+  const m=D.matches[mid];if(!m)return;
+  try{await C.db.ref('matches/'+mid).update({w:side?m.b:m.a,status:'done',forfeit:true,endedAt:Date.now()})}catch(e){toast('Couldn’t update the match. · 경기 결과를 저장하지 못했습니다.')}
+}
+async function joinLobby(){
+  if(!C.uid||!D.game)return;
+  const el=$('#nm');const name=((el&&el.value)||'').trim().replace(/\s+/g,' ').slice(0,20);
+  if(!name){toast('Type your name first. · 이름을 입력하세요.');if(el)el.focus();return}
+  try{localStorage.setItem('pd-name',name)}catch(e){}
+  try{await C.db.ref('players/'+C.uid).set({name,tid:D.game.tid,at:Date.now()})}catch(e){toast('Couldn’t join. Try again. · 참가하지 못했습니다.')}
+}
+async function leaveLobby(uid){try{await C.db.ref('players/'+uid).delete()}catch(e){toast('Couldn’t remove. · 삭제하지 못했습니다.')}}
+
+/* ================= shared UI bits ================= */
+function twoStep(btn,label,fn){if(!btn)return;let armed=false,t;btn.addEventListener('click',()=>{if(armed){clearTimeout(t);armed=false;fn();return}armed=true;const old=btn.innerHTML;btn.innerHTML=label;btn.classList.add('warn');t=setTimeout(()=>{armed=false;btn.innerHTML=old;btn.classList.remove('warn')},3500)})}
+function brandMark(){return `<svg viewBox="0 0 220 90" aria-hidden="true"><circle cx="30" cy="48" r="20" fill="url(#g-N)" stroke="var(--ballline)"/><circle cx="88" cy="42" r="20" fill="url(#g-O)" stroke="var(--ballline)"/><circle cx="64" cy="62" r="12" fill="url(#g-H)" stroke="var(--ballline)"/><circle cx="112" cy="62" r="12" fill="url(#g-H)" stroke="var(--ballline)"/><circle cx="172" cy="48" r="24" fill="url(#g-Cl)" stroke="var(--ballline)"/><circle cx="198" cy="22" r="11" fill="var(--ink)"/><text x="198" y="23" text-anchor="middle" dominant-baseline="central" fill="var(--bg)" font-family="IBM Plex Mono, monospace" font-weight="600" font-size="15">−</text></svg>`}
+function topbar(){
+  let me='';
+  const mine=D.players.find(p=>p.uid===C.uid);
+  if(C.isHost)me=`<div class="me"><span><b>Teacher</b><span class="role">Host device · 진행자</span></span></div>`;
+  else if(mine)me=`<div class="me"><span><b>${esc(mine.name)}</b><span class="role">Student · 학생</span></span></div>`;
+  return `<header class="top"><div class="brand">${brandMark()}<div><p class="eyebrow">Grade 9 Science · Atoms, Molecules & Ions</p><h1>Particle Duel</h1><p>원자 · 분자 · 이온 1대1 퐁 토너먼트</p></div></div>${me}</header>`;
+}
+const studentLink=()=>location.origin+location.pathname;
+function linkBox(){return `<div class="linkbox"><code id="slink">${esc(studentLink())}</code><button class="btn sm" id="copy" type="button">Copy · 복사</button></div>`}
+function howCard(open){
+  return `<details class="panel how"${open?' open':''}><summary>How to play · 진행 방법</summary><ol>
+    <li>Open the class link, type your name and tap <b>Join</b>. No account needed.<span>링크를 열고 이름을 입력한 뒤 참가하기를 누릅니다. 가입은 필요 없습니다.</span></li>
+    <li>Each match starts with the same 3 questions for both players, 20 seconds each.<span>두 사람이 같은 문제 3개를 풉니다. 문제당 20초.</span></li>
+    <li>Every correct answer makes your Pong paddle 20% longer, up to +60%.<span>맞힐 때마다 막대가 20%씩 길어집니다 (최대 +60%).</span></li>
+    <li>Then play Pong. First to 11 wins. The ball speeds up on the 4th and 12th hit of a rally, and where it hits your paddle sets the angle. Paddles can’t reach the very top and bottom edges.<span>11점 먼저 내면 승리. 랠리 4번째·12번째 타격에서 공이 빨라지고, 막대 맨 위·아래에는 닿지 않는 사각지대가 있습니다.</span></li>
+    <li>Hold the ▲ ▼ buttons (or ↑ ↓ keys) to move your paddle.<span>▲ ▼ 버튼(또는 키보드 ↑ ↓)을 누르고 있으면 막대가 움직입니다.</span></li>
+    <li>Winners move on. With an odd number of players, one player gets a bye and watches a live match.<span>이긴 사람이 다음 라운드로. 인원이 홀수면 1명이 부전승으로 올라가고 다른 경기를 관람합니다.</span></li>
+  </ol></details>`;
+}
+
+/* ================= home ================= */
+function renderHome(){
+  let main='';
+  if(!C.ready)main=`<section class="panel"><p class="muted">Connecting… · 연결 중</p></section>`;
+  else if(C.setup)main=setupView();
+  else if(C.fail)main=`<section class="status"><div><h2>Can’t connect · 연결할 수 없습니다</h2><p>${esc(C.fail)}</p><p>Check that Anonymous sign-in is turned on in Firebase Authentication and that the config at the top of the file is correct. · Firebase 익명 로그인 사용 설정과 파일 맨 위 설정값을 확인하세요.</p></div></section>`;
+  else if(D.err&&!D.game)main=`<section class="status"><div><h2>The database refused access · 데이터베이스 접근 거부</h2><p>Check the Realtime Database rules from the setup guide. (${esc(D.err)}) · 설정 안내의 보안 규칙을 확인하세요.</p></div></section>`;
+  else if(!D.gameLoaded||!D.hostLoaded)main=`<section class="panel"><p class="muted">${D.slow?'The game data can’t be reached yet. Check your connection. · 데이터에 연결할 수 없습니다.':'Loading the tournament… · 불러오는 중'}</p></section>`;
+  else if(C.wantHost&&!C.isHost)main=hostClaimView();
+  else if(!D.game)main=C.isHost?hostOpenView():`<section class="status"><div><h2>Waiting for your teacher · 선생님을 기다리는 중</h2><p>The lobby opens when your teacher starts a tournament. Keep this page open. · 선생님이 대기실을 열면 참가할 수 있습니다.</p></div></section>`;
+  else if(D.game.status==='lobby')main=lobbyView(D.game);
+  else main=tournamentView(D.game);
+  app.innerHTML=`<div class="wrap">${topbar()}${main}${C.setup?'':howCard(!D.game||D.game.status==='lobby')}</div>`;
+  wireHome();
+}
+function setupView(){
+  return `<section class="panel setup"><h2>Setup needed · 설정이 필요합니다</h2><p>This copy isn’t connected to a Firebase project yet. Open <b>index.html</b> in a text editor and paste your Firebase config at the top (look for <b>FIREBASE_CONFIG</b>). · 파일 맨 위 FIREBASE_CONFIG에 Firebase 설정값을 붙여 넣으세요.</p><ol><li>Create a Firebase project and a Realtime Database. · 프로젝트와 실시간 데이터베이스 만들기</li><li>Turn on Anonymous sign-in. · 익명 로그인 켜기</li><li>Paste the security rules. · 보안 규칙 붙여 넣기</li><li>Paste the web config here and upload the file. · 설정값 붙여 넣고 파일 올리기</li></ol></section>`;
+}
+function hostClaimView(){
+  if(!D.host)return `<section class="status go"><div><h2>Make this device the host · 이 기기를 진행자로</h2><p>The host device opens the lobby, starts the tournament and draws each round. Use the computer you will project. · 프로젝터에 연결된 컴퓨터에서 누르세요.</p></div><div class="acts"><button class="btn primary big" id="claim">Become host · 진행자 되기</button></div></section>`;
+  return `<section class="status"><div><h2>Another device is the host · 다른 기기가 진행자입니다</h2><p>To move hosting here, press “Release host” on that device, or open the Firebase console → Realtime Database, delete the <b>host</b> entry, and reload this page. · 기존 기기에서 “진행자 해제”를 누르거나 Firebase 콘솔에서 host 항목을 지운 뒤 새로고침하세요.</p></div></section>`;
+}
+function typesBox(g){
+  return `<div class="types">${Object.entries(TYPES).map(([k,[en,ko]])=>`<label class="chk"><input type="checkbox" id="ty-${k}" data-k="${k}" ${(g.types||ALLTYPES)[k]?'checked':''}><span><b>${en}</b><small>${ko}</small></span></label>`).join('')}</div>`;
+}
+function hostOpenView(){
+  return `<section class="status go"><div><h2>Start a class tournament · 대회 열기</h2><p>Open the lobby, then have students open this page on their own devices and tap Join. · 대기실을 열고 학생들이 각자 기기로 접속해 참가하게 하세요.</p></div><div class="acts"><button class="btn primary big" id="open">Open lobby · 대기실 열기</button></div></section>`;
+}
+function lobbyView(g){
+  const ps=D.players,n=ps.length,pl=planRounds(n);
+  let join='';let saved='';try{saved=localStorage.getItem('pd-name')||''}catch(e){}
+  const mine=ps.find(p=>p.uid===C.uid);
+  if(C.isHost)join=`<p class="note">Students open the link on their own devices, type their name and tap Join. · 학생들은 각자 기기로 링크를 열고 이름을 입력해 참가합니다.</p>`;
+  else if(!mine)join=`<form class="joinf" id="joinf"><label for="nm">Your name · 이름</label><div class="joinrow"><input id="nm" maxlength="20" autocomplete="off" placeholder="예: 김민준" value="${esc(saved)}"><button class="btn primary big" type="submit">Join · 참가하기</button></div></form>`;
+  else join=`<div class="phead"><p><b>You’re in as ${esc(mine.name)}!</b> <span class="muted">Waiting for the teacher to start. · 시작을 기다리는 중</span></p><button class="btn sm ghost" id="leave">Leave · 나가기</button></div>`;
+  const chips=n?`<div class="plist">${ps.map(p=>`<span class="pchip${p.uid===C.uid?' me':''}">${nameSpan(p.uid)}${C.isHost?`<button data-kick="${esc(p.uid)}" aria-label="Remove player">×</button>`:''}</span>`).join('')}</div>`:`<div class="empty">No one has joined yet. · 아직 참가자가 없습니다.</div>`;
+  const left=`<section class="panel"><div class="phead"><h2>Lobby <span class="ko">대기실</span></h2><span class="count">${n} joined · ${n}명 참가</span></div>${join}${chips}</section>`;
+  let right='';
+  if(C.isHost){
+    right=`<section class="panel"><h2>Teacher controls <span class="ko">교사 설정</span></h2>
+      <p class="note">Share this link with students (without <b>?host</b>). Keep this page open: it draws each new round automatically. · 학생에게 아래 링크를 공유하고, 이 화면을 켜 두세요.</p>${linkBox()}
+      <h2>Question types <span class="ko">문제 유형</span></h2>${typesBox(g)}
+      <div class="plan">${n>=2?`${pl.seq.join(' → ')} · ${pl.rounds} round${pl.rounds>1?'s':''}${pl.byes?` · ${pl.byes} bye${pl.byes>1?'s':''} (부전승)`:''}`:'Need at least 2 players · 최소 2명'}</div>
+      <button class="btn primary big" id="start" ${n<2?'disabled':''}>Start tournament · 토너먼트 시작</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm ghost" id="reset">Clear lobby · 대기실 초기화</button><button class="btn sm ghost" id="release">Release host · 진행자 해제</button></div></section>`;
+  }else{
+    right=`<section class="panel"><h2>Your paddle <span class="ko">나의 막대</span></h2><p class="note">Answer fast and right: each correct answer adds 20% to your Pong paddle. · 정답 하나마다 막대 +20%.</p>${padsDemo()}</section>`;
+  }
+  return `<div class="grid2">${left}${right}</div>`;
+}
+function padsDemo(){
+  return `<div class="pads-row">${[0,1,2,3].map(c=>`<div class="pp"><div class="pp-field"><div class="pp-net"></div><div class="pp-pad l" style="--h:${lenPct(c)}%"></div></div><div class="pp-lab"><b>${c}/3</b><span class="pct">${padPct(c)}%</span></div></div>`).join('')}</div>`;
+}
+function tournamentView(g){
+  const rounds=g.rounds||[];let html='';
+  if(g.status==='done'&&g.champion){
+    const nm=nameOf(g.champion);
+    html+=`<section class="status gold champ"><div class="tile"><span class="tz">1</span><span class="tsym" data-uid-initial="${esc(g.champion)}">${esc([...nm][0]||'?')}</span><span class="tname">${nameSpan(g.champion)}</span></div><div><p class="eyebrow">Champion · 우승</p><h2>${nameSpan(g.champion)}</h2><p>${g.champion===C.uid?'You won the whole tournament! · 최종 우승을 축하합니다!':'Tournament complete. · 대회가 끝났습니다.'}</p></div></section>`;
+  }
+  html+=myStatusCard(g);
+  const live=liveMatches();
+  if(live.length)html+=`<section class="panel"><div class="phead"><h2>Live now <span class="ko">진행 중인 경기</span></h2><span class="count">${live.length} match${live.length>1?'es':''}</span></div><div class="live">${live.map(liveCard).join('')}</div></section>`;
+  if(g.status==='running'&&!rounds.length)html+=`<section class="panel"><p class="muted">Drawing the first round… · 대진 추첨 중</p></section>`;
+  if(rounds.length)html+=`<section class="panel"><h2>Bracket <span class="ko">대진표</span></h2><div class="bracket-scroll"><div class="bracket">${rounds.map(roundCol).join('')}</div></div></section>`;
+  if(C.isHost)html+=hostRunPanel(g);
+  return html;
+}
+function myStatusCard(g){
+  if(!C.uid||!g.rounds||!g.rounds.length)return '';
+  const cur=curRound(),all=Object.values(D.matches);
+  const mine=all.filter(m=>m.a===C.uid||m.b===C.uid);
+  const inT=mine.length||(g.rounds||[]).some(r=>r.bye===C.uid);
+  if(g.status==='done')return '';
+  if(!inT)return C.isHost?'':`<section class="status"><div><h2>You’re watching · 관람 중</h2><p>This tournament started before you joined. Pick a live match to watch. · 진행 중인 경기를 골라 관람하세요.</p></div></section>`;
+  const lost=mine.find(m=>m.w&&m.w!==C.uid);
+  if(lost){const rd=g.rounds[lost.r];const lab=rd?roundLabel(rd):['',''];const opp=lost.a===C.uid?lost.b:lost.a;
+    return `<section class="status"><div><h2>Out in the ${lab[0]} · ${lab[1]} 탈락</h2><p>Lost to ${nameSpan(opp)}. Keep watching the live matches! · 남은 경기를 관람하세요.</p></div></section>`}
+  if(cur&&cur.bye===C.uid){const lv=liveMatches();
+    return `<section class="status go"><div><h2>Bye this round · 이번 라운드 부전승</h2><p>You go straight to the next round. Watch a live match while you wait. · 다음 라운드로 자동 진출! 기다리는 동안 경기를 관람하세요.</p></div>${lv.length?`<div class="acts"><button class="btn primary" data-watch="${esc(lv[0].id)}">Watch a match · 관람하기</button></div>`:''}</section>`}
+  const act=myActiveMatch();
+  if(act)return `<section class="status go"><div><h2>Your match is ready · 경기 준비 완료</h2></div><div class="acts"><button class="btn primary big" data-play="${esc(act.id)}">Play · 경기하기</button></div></section>`;
+  return `<section class="status"><div><h2>You won! · 승리!</h2><p>The next round starts when every match in this round is finished. Watch the others meanwhile. · 이번 라운드가 모두 끝나면 다음 경기가 시작됩니다.</p></div></section>`;
+}
+function liveCard(m){
+  const ph=phaseOf(m);
+  const qa=D.quiz[qid(m.id,m.a)],qb=D.quiz[qid(m.id,m.b)];
+  const pill=ph==='quiz'?`<span class="pill q dot">Questions · 문제</span>`:`<span class="pill p dot">Pong ${(m.score||[0,0])[0]}–${(m.score||[0,0])[1]}</span>`;
+  const sub=ph==='quiz'?`${(qa&&qa.ans||[]).length}/3 · ${(qb&&qb.ans||[]).length}/3 answered`:'First to 11 · 11점 선승';
+  const host=C.isHost?`<div class="award"><button class="btn sm" data-award="${esc(m.id)}" data-side="0">${nameSpan(m.a)} wins</button><button class="btn sm" data-award="${esc(m.id)}" data-side="1">${nameSpan(m.b)} wins</button></div>`:'';
+  return `<div class="lm"><div class="row">${pill}<span class="sub">${sub}</span></div><div class="vsl"><span style="color:var(--red)">${nameSpan(m.a)}</span><em>vs</em><span style="color:var(--blue)">${nameSpan(m.b)}</span></div><div class="row"><button class="btn sm primary" data-watch="${esc(m.id)}">Watch · 관람</button></div>${host}</div>`;
+}
+function roundCol(rd){
+  const [en,ko]=roundLabel(rd);
+  const cards=rd.mids.map(id=>matchCard(D.matches[id])).join('');
+  const bye=rd.bye?`<div class="mc bye"><div class="r"><span>${nameSpan(rd.bye)}</span><span class="pill">Bye</span></div></div>`:'';
+  return `<div class="round"><h3>${en}<span>${ko} · ${rd.n}명</span></h3><div class="round-body">${cards}${bye}</div></div>`;
+}
+function matchCard(m){
+  if(!m)return `<div class="mc"><div class="r"><span class="muted">…</span></div></div>`;
+  const sc=m.score||[0,0],done=m.w!=null;
+  const row=(id,s)=>{const cls=[done?(m.w===id?'win':'lose'):'',id===C.uid?'mine':''].join(' ');return `<div class="r ${cls}"><span>${nameSpan(id)}</span><span class="sc">${done&&m.forfeit?(m.w===id?'W':'–'):(phaseOf(m)!=='quiz'||done?sc[s]:'')}</span></div>`};
+  const ph=phaseOf(m);
+  const foot=done?`<span class="pill d">Final</span>`:ph==='pong'?`<span class="pill p dot">Pong</span>`:`<span class="pill q dot">Questions</span>`;
+  const inner=row(m.a,0)+row(m.b,1)+`<div class="foot">${foot}${done?'':'<span class="count">Watch →</span>'}</div>`;
+  return done?`<div class="mc">${inner}</div>`:`<button class="mc" data-watch="${esc(m.id)}" aria-label="Watch this match">${inner}</button>`;
+}
+function hostRunPanel(g){
+  const cur=curRound();
+  const stuck=g.status==='running'&&cur&&cur.mids.every(id=>D.matches[id]&&D.matches[id].w!=null);
+  return `<section class="panel"><h2>Teacher controls <span class="ko">교사 설정</span></h2>
+    <p class="note">Keep this page open: when every match in a round ends, it draws the next round. If a student drops out, use the “wins” buttons on a live match to award it. · 학생이 접속하지 못하면 “wins” 버튼으로 승자를 지정하세요.</p>
+    ${linkBox()}<div class="acts" style="display:flex;gap:8px;flex-wrap:wrap">${stuck?`<button class="btn primary" id="advance">Draw next round · 다음 라운드</button>`:''}<button class="btn" id="newt">New tournament · 새 대회</button><button class="btn ghost" id="release">Release host · 진행자 해제</button></div></section>`;
+}
+function wireHome(){
+  const on=(sel,fn)=>{const el=$(sel);if(el)el.addEventListener('click',fn)};
+  on('#open',hostNewLobby);
+  const jf=$('#joinf');if(jf)jf.addEventListener('submit',e=>{e.preventDefault();joinLobby()});
+  on('#claim',()=>C.db.ref('host').set(C.uid).catch(()=>toast('Couldn’t become host. Another device may have taken it. · 진행자 설정 실패')));
+  on('#copy',()=>{const el=$('#slink');const sel=()=>{const r=document.createRange();r.selectNodeContents(el);const s=getSelection();s.removeAllRanges();s.addRange(r)};try{navigator.clipboard.writeText(el.textContent).then(()=>toast('Link copied · 링크 복사됨'),sel)}catch(e){sel()}});
+  twoStep($('#release'),'Click again to release · 한 번 더',()=>C.db.ref('host').remove().catch(()=>{}));
+  on('#leave',()=>leaveLobby(C.uid));
+  on('#start',hostStart);
+  on('#advance',hostAdvance);
+  twoStep($('#newt'),'Click again to reset · 한 번 더 누르면 새 대회',hostNewLobby);
+  twoStep($('#reset'),'Click again to clear · 한 번 더 누르면 초기화',hostNewLobby);
+  document.querySelectorAll('[data-kick]').forEach(b=>b.addEventListener('click',()=>leaveLobby(b.dataset.kick)));
+  document.querySelectorAll('.types input').forEach(c=>c.addEventListener('change',()=>{const t={...((D.game&&D.game.types)||ALLTYPES),[c.dataset.k]:c.checked};if(!Object.values(t).some(Boolean)){c.checked=true;toast('Keep at least one question type. · 문제 유형을 하나 이상 선택하세요.');return}writeDoc('game',{types:t},'update')}));
+  document.querySelectorAll('[data-watch]').forEach(b=>b.addEventListener('click',()=>openMatch(b.dataset.watch,true)));
+  document.querySelectorAll('[data-play]').forEach(b=>b.addEventListener('click',()=>openMatch(b.dataset.play,false)));
+  document.querySelectorAll('[data-award]').forEach(b=>twoStep(b,'Confirm · 확인',()=>award(b.dataset.award,+b.dataset.side)));
+}
+
+/* ================= match container ================= */
+function openMatch(mid,watch){
+  closeMatch();
+  const m=D.matches[mid];if(!m){renderHome();return}
+  const side=watch?-1:(m.a===C.uid?0:m.b===C.uid?1:-1);
+  MV={mid,side,screen:null,q:null,pong:null,room:null,roomP:null,resultAt:0,stW:false};
+  if(C.db)MV.room=liveRoom(mid);
+  window.scrollTo(0,0);
+  matchUpdate();
+}
+function closeMatch(){
+  if(!MV)return;const my=MV;MV=null;
+  if(my.q)clearInterval(my.q.tick),clearTimeout(my.q.adv);
+  if(my.pong)my.pong.stop();
+  if(my.room)my.room.leave().catch(()=>{});
+}
+function goHome(){closeMatch();renderHome();window.scrollTo(0,0)}
+function matchUpdate(){
+  const m=D.matches[MV.mid];if(!m){goHome();return}
+  const ph=phaseOf(m);
+  if(ph==='done')return showScreen('result');
+  if(MV.side>=0){
+    if(!D.quizLoaded)return showScreen('loading');
+    if(!MV.q)initQuiz(m);
+    if(MV.q.state==='active')return showScreen('quiz');
+    if(ph==='pong'){if(m.status!=='pong'&&!MV.stW){MV.stW=true;writeDoc('matches/'+m.id,{status:'pong'},'update')}return showScreen('pong')}
+    return showScreen('wait');
+  }
+  return showScreen(ph==='pong'?'pong':'watchquiz');
+}
+function showScreen(name){
+  if(MV.screen===name){refreshScreen();return}
+  if(MV.pong&&name!=='pong'){MV.pong.stop();MV.pong=null}
+  MV.screen=name;
+  ({loading:buildLoading,quiz:buildQuiz,wait:buildWait,watchquiz:buildWatchQuiz,pong:buildPong,result:buildResult})[name]();
+  paintNames();
+}
+function refreshScreen(){
+  const m=D.matches[MV.mid];if(!m)return;
+  if(MV.screen==='quiz'||MV.screen==='wait'||MV.screen==='watchquiz')updatePads(m);
+  if(MV.screen==='wait')updateWaitText(m);
+  if(MV.screen==='watchquiz'||(MV.screen==='pong'&&MV.side<0))updateSwitcher();
+  paintNames();
+}
+function mhead(m,compact){
+  const rd=((D.game&&D.game.rounds)||[])[m.r];const lab=rd?roundLabel(rd):['Match','경기'];
+  const w=MV.side<0;
+  if(compact)return `<header class="mhead"><p class="eyebrow">${lab[0]} · ${lab[1]}${w?' · Watching · 관람 중':''}</p>${w?`<button class="btn sm" id="mback">← Bracket · 대진표</button>`:''}</header>`;
+  return `<header class="mhead"><div><p class="eyebrow">${lab[0]} · ${lab[1]}${w?' · Watching · 관람 중':''}</p><h2 class="vs"><span class="l">${nameSpan(m.a)}${MV.side===0?' <small>you</small>':''}</span><em>vs</em><span class="r">${nameSpan(m.b)}${MV.side===1?' <small>you</small>':''}</span></h2></div>${w?`<button class="btn sm" id="mback">← Bracket · 대진표</button>`:''}</header>`;
+}
+function wireBack(){const b=$('#mback');if(b)b.addEventListener('click',goHome)}
+function switcherHTML(){
+  if(MV.side>=0)return '';
+  const others=liveMatches().filter(m=>m.id!==MV.mid);
+  if(!others.length)return `<div class="switch" id="switch"></div>`;
+  return `<div class="switch" id="switch"><span class="count">Other live matches · 다른 경기</span>${others.map(m=>`<button class="btn sm" data-sw="${esc(m.id)}">${nameSpan(m.a)} vs ${nameSpan(m.b)}</button>`).join('')}</div>`;
+}
+function updateSwitcher(){const s=$('#switch');if(!s)return;const html=switcherHTML();const tmp=document.createElement('div');tmp.innerHTML=html;const n=tmp.firstElementChild;if(n&&n.innerHTML!==s.innerHTML){s.innerHTML=n.innerHTML;wireSwitcher();paintNames()}}
+function wireSwitcher(){document.querySelectorAll('[data-sw]').forEach(b=>b.addEventListener('click',()=>openMatch(b.dataset.sw,true)))}
+function buildLoading(){app.innerHTML=`<div class="mwrap"><section class="panel"><p class="muted">Loading your match… · 경기 불러오는 중</p></section></div>`}
+
+/* ---------- paddle panel ---------- */
+function padsHTML(m,title){
+  const pp=s=>{const id=s?m.b:m.a;return `<div class="pp ${s?'R':'L'}" id="pp${s}" data-c="-1"><div class="pp-field"><div class="pp-net"></div><div class="pp-pad ${s?'r':'l'}" style="--h:${lenPct(0)}%"></div><span class="pp-pop">+20%</span></div><div class="pp-lab"><b>${nameSpan(id)}</b><span class="pct">100%</span></div><div class="dots">${'<i></i>'.repeat(QN)}</div></div>`};
+  return `<aside class="pads"><h3>${title||'Paddle length · 막대 길이'}</h3><div class="pads-row">${pp(0)}${pp(1)}</div><p class="note">Each correct answer: +20% (max +60%). · 정답 1개당 +20%</p></aside>`;
+}
+function ansOf(m,s){if(MV&&MV.side===s&&MV.q)return MV.q.ans;const d=D.quiz[qid(m.id,s?m.b:m.a)];return (d&&Array.isArray(d.ans))?d.ans:[]}
+const correctOf=(m,s)=>ansOf(m,s).filter(x=>x===1).length;
+function updatePads(m){
+  for(const s of [0,1]){
+    const el=$('#pp'+s);if(!el)continue;
+    const ans=ansOf(m,s),c=ans.filter(x=>x===1).length,prev=+el.dataset.c;
+    if(c!==prev){
+      el.querySelector('.pp-pad').style.setProperty('--h',lenPct(c)+'%');
+      if(prev>=0&&c>prev){const pop=el.querySelector('.pp-pop'),f=el.querySelector('.pp-field');pop.classList.remove('go');f.classList.remove('flash');void pop.offsetWidth;pop.classList.add('go');f.classList.add('flash')}
+      el.dataset.c=c;
+    }
+    el.querySelector('.pct').textContent=padPct(c)+'%';
+    el.querySelectorAll('.dots i').forEach((d,i)=>{d.className=i<ans.length?(ans[i]===1?'ok':'no'):''});
+  }
+}
+function settlePads(m){requestAnimationFrame(()=>requestAnimationFrame(()=>updatePads(m)))}
+
+/* ---------- quiz ---------- */
+function initQuiz(m){
+  const d=D.quiz[qid(m.id,C.uid)];
+  const ans=d&&Array.isArray(d.ans)?d.ans.slice(0,QN):[];
+  MV.q={qs:quizFor(m),ans:[...ans],idx:ans.length,state:ans.length>=QN?'finished':'active',locked:false,tick:0,adv:0};
+}
+function buildQuiz(){
+  const m=D.matches[MV.mid];
+  app.innerHTML=`<div class="mwrap">${mhead(m)}<div class="quiz"><section class="qcard" id="qbox"></section>${padsHTML(m)}</div></div>`;
+  settlePads(m);showQ();
+}
+function showQ(){
+  const q=MV.q,item=q.qs[q.idx];
+  q.locked=false;q.deadline=Date.now()+QTIME;
+  $('#qbox').innerHTML=`<div class="qtop"><span>Question ${q.idx+1} / ${QN} · ${TYPES[item.type][0]}</span><span class="tnum" id="tnum">20</span></div>
+    <div class="tbar" id="tbarw"><i id="tbar"></i></div>
+    <h3 class="prompt">${item.prompt}</h3><p class="prompt-ko">${item.ko}</p>
+    <div class="stage">${item.stage}</div>
+    <div class="qopts">${item.options.map((o,i)=>`<button class="qopt" data-i="${i}"><span class="k">${i+1}</span><span class="lab">${o}</span></button>`).join('')}</div>
+    <div class="fb" id="fb" hidden></div>`;
+  document.querySelectorAll('.qopt').forEach(b=>b.addEventListener('click',()=>answerQ(+b.dataset.i)));
+  clearInterval(q.tick);
+  const tickFn=()=>{if(!MV||MV.q!==q||q.locked)return;const rem=Math.max(0,q.deadline-Date.now());const tn=$('#tnum'),tb=$('#tbar'),tw=$('#tbarw');if(tn){tn.textContent=Math.ceil(rem/1000);tn.classList.toggle('low',rem<5000)}if(tb)tb.style.transform=`scaleX(${rem/QTIME})`;if(tw)tw.classList.toggle('low',rem<5000);if(rem<=0)answerQ(-1)};
+  tickFn();q.tick=setInterval(tickFn,100);
+}
+function answerQ(i){
+  const q=MV&&MV.q;if(!q||q.locked||q.state!=='active')return;
+  const item=q.qs[q.idx];if(i>=item.options.length)return;
+  q.locked=true;clearInterval(q.tick);
+  const ok=i===item.answer;q.ans.push(ok?1:0);
+  ok?sfx.good():sfx.bad();
+  document.querySelectorAll('.qopt').forEach((b,j)=>{b.disabled=true;if(j===item.answer)b.classList.add('right');else if(j===i)b.classList.add('wrong');else b.classList.add('dim')});
+  const m=D.matches[MV.mid];
+  writeDoc('quiz/'+qid(m.id,C.uid),{tid:m.tid,mid:m.id,uid:C.uid,ans:q.ans.slice(),correct:q.ans.filter(x=>x===1).length,done:q.ans.length>=QN,at:Date.now()});
+  updatePads(m);
+  const last=q.ans.length>=QN;
+  const fb=$('#fb');fb.hidden=false;
+  fb.innerHTML=`<p class="v ${ok?'ok':'no'}">${ok?'Correct! Paddle +20% · 정답! 막대 +20%':i<0?'Time’s up · 시간 초과':'Not quite · 오답'}</p><p class="ex">${item.explain}</p><button class="btn primary" id="nextq">${last?'Done · 완료':'Next question · 다음 문제'} <kbd>Enter</kbd></button>`;
+  const go=()=>{clearTimeout(q.adv);if(!MV||MV.q!==q)return;if(last){q.state='finished';matchUpdate()}else{q.idx++;showQ()}};
+  $('#nextq').addEventListener('click',go);q.next=go;
+  q.adv=setTimeout(go,last?3200:3600);
+}
+document.addEventListener('keydown',e=>{
+  if(!MV||MV.screen!=='quiz'||!MV.q||e.metaKey||e.ctrlKey||e.altKey||e.repeat)return;
+  if(!MV.q.locked&&/^[1-4]$/.test(e.key)){e.preventDefault();answerQ(+e.key-1)}
+  else if(MV.q.locked&&(e.key==='Enter'||e.key===' ')&&MV.q.next){e.preventDefault();MV.q.next()}
+});
+
+/* ---------- waiting / watching quiz ---------- */
+function buildWait(){
+  const m=D.matches[MV.mid];
+  app.innerHTML=`<div class="mwrap">${mhead(m)}<div class="quiz"><section class="qcard waitbox" id="wbox"></section>${padsHTML(m,'Your paddles · 막대 비교')}</div></div>`;
+  settlePads(m);updateWaitText(m);
+}
+function updateWaitText(m){
+  const b=$('#wbox');if(!b)return;
+  const me=MV.side,opp=1-me,oppId=opp?m.b:m.a,oa=ansOf(m,opp).length,c=correctOf(m,me);
+  b.innerHTML=`<p class="eyebrow">Questions done · 문제 완료</p><h3>${c}/3 correct · paddle ${padPct(c)}%</h3><p>Waiting for ${nameSpan(oppId)} to finish (${oa}/3 answered). · 상대가 문제를 다 풀면 퐁 게임이 시작됩니다.</p><p class="note">If your opponent never shows up, your teacher can award the match. · 상대가 접속하지 않으면 선생님이 승자를 정할 수 있습니다.</p>`;
+}
+function buildWatchQuiz(){
+  const m=D.matches[MV.mid];
+  app.innerHTML=`<div class="mwrap">${mhead(m)}<div class="quiz"><section class="qcard waitbox"><p class="eyebrow">Question round · 문제 풀이 중</p><h3>Both players are answering 3 questions</h3><p class="muted">Every correct answer grows that player’s paddle. Pong starts when both are done. · 둘 다 문제를 마치면 퐁 게임이 시작됩니다.</p></section>${padsHTML(m)}</div>${switcherHTML()}</div>`;
+  wireBack();wireSwitcher();settlePads(m);
+}
+
+/* ---------- pong screen ---------- */
+const ARROW_UP='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 22 18H2z"/></svg>',ARROW_DN='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20 2 6h20z"/></svg>';
+function buildPong(){
+  const m=D.matches[MV.mid],side=MV.side;
+  const bonus=s=>{const c=correctOf(m,s);return c?` <span class="you">+${c*20}%</span>`:''};
+  const ctrl=side>=0?`<div class="ctrl"><button class="arrow" id="bup" aria-label="Move paddle up">${ARROW_UP}</button><button class="arrow" id="bdn" aria-label="Move paddle down">${ARROW_DN}</button></div>`:'';
+  app.innerHTML=`<div class="mwrap">${mhead(m,true)}
+    <div class="pbar"><div class="pn L">${nameSpan(m.a)}${side===0?' <span class="you">you</span>':''}${bonus(0)}</div><div class="pmid"><span class="pill">First to 11 · 11점</span><button class="btn sm ghost" id="snd">${MUTED?'Sound off':'Sound on'}</button></div><div class="pn R">${bonus(1)}${side===1?' <span class="you">you</span>':''} ${nameSpan(m.b)}</div></div>
+    <div class="pongs ${side===1?'right':side<0?'watch':''}">${ctrl}<div class="cvwrap"><div class="cvbox"><canvas id="cv" width="800" height="600" aria-label="Pong game"></canvas><div class="cvmsg" id="cvmsg"></div></div></div></div>
+    ${side>=0?`<p class="phint">Hold ▲ ▼ to move · 버튼을 누르고 있으면 움직입니다 (keyboard ↑ ↓ / W S)</p>`:''}
+    ${switcherHTML()}</div>`;
+  wireBack();wireSwitcher();
+  $('#snd').addEventListener('click',e=>{MUTED=!MUTED;try{localStorage.setItem('pd-muted',MUTED?'1':'0')}catch(err){}e.currentTarget.textContent=MUTED?'Sound off':'Sound on'});
+  const my=MV,mid=MV.mid;
+  const start=room=>{
+    if(MV!==my||MV.screen!=='pong')return;
+    if(!room){$('#cvmsg').innerHTML='<span>Live connection unavailable. Reload the page. · 실시간 연결을 할 수 없습니다.</span>';return}
+    const mm=D.matches[mid];
+    my.pong=createPong({mid,a:mm.a,b:mm.b,side,room,hts:[BASE+BONUS*correctOf(mm,0),BASE+BONUS*correctOf(mm,1)],score0:Array.isArray(mm.score)?mm.score:[0,0],first:hashStr('serve:'+mid)%2,
+      cv:$('#cv'),msg:$('#cvmsg'),up:$('#bup'),dn:$('#bdn'),
+      onScore:s=>writeDoc('matches/'+mid,{score:s},'update'),
+      onOver:(w,s)=>{const x=D.matches[mid];if(x&&x.w==null)writeDoc('matches/'+mid,{w:w?x.b:x.a,score:s,status:'done',endedAt:Date.now()},'update')}});
+  };
+  if(my.room){my.room.watch(side>=0?[1-side]:[0,1]);start(my.room)}else start(null);
+}
+
+/* ---------- result ---------- */
+function buildResult(){
+  const m=D.matches[MV.mid];MV.resultAt=Date.now();
+  const wSide=m.w===m.a?0:1,sc=m.score||[0,0];
+  let msg='';
+  if(MV.side>=0)msg=MV.side===wSide?'You win and move on! · 승리! 다음 라운드로 진출합니다.':'Good game. You can watch the remaining matches. · 수고했어요! 남은 경기를 관람할 수 있어요.';
+  if(MV.side===wSide)sfx.good();
+  app.innerHTML=`<div class="mwrap">${mhead(m)}<section class="panel result"><p class="eyebrow">${m.forfeit?'Awarded by teacher · 선생님 판정':'Final · 최종'}</p><h2>${nameSpan(m.w)} wins</h2>${m.forfeit?'':`<div class="fscore"><span class="l">${sc[0]}</span> : <span class="r">${sc[1]}</span></div>`}<p>${msg}</p><div class="acts"><button class="btn primary big" id="rhome">Back to bracket · 대진표로</button></div></section>${switcherHTML()}</div>`;
+  $('#rhome').addEventListener('click',goHome);wireBack();wireSwitcher();
+}
+
+/* ================= Pong engine =================
+   Field 800×600. Each player owns the ball while it travels toward them and decides hits with their own paddle;
+   on a hit the ball (epoch e+1) passes to the other player. State travels in room presence. */
+function createPong(o){
+  const {a,b,side,room,hts,score0,first,cv,msg,onScore,onOver}=o;
+  const W=800,H=600,BS=12,PW=12,AX=36,BX=W-AX-PW,GAP=26,PSPD=540,WIN=11,R=H-BS;
+  const SEG=[-1,-.67,-.33,0,0,.33,.67,1],TIERS=[300,400,520];
+  const ctx=cv.getContext('2d');
+  const FONT={0:['111','101','101','101','111'],1:['001','001','001','001','001'],2:['111','001','111','100','111'],3:['111','001','111','001','111'],4:['101','101','111','001','001'],5:['111','100','111','001','111'],6:['111','100','111','101','111'],7:['111','001','001','001','001'],8:['111','101','111','101','111'],9:['111','101','111','001','111']};
+  let G=null,Gat=0,myY=H/2,up=false,dn=false,last=Date.now(),raf=0,stopped=false,both=0,lastOg=null,overDone=false,lastMsg=null;
+  const ys=[H/2,H/2];
+  const tier=h=>TIERS[h>=12?2:h>=4?1:0];
+  const cy=(y,hh)=>Math.max(GAP+hh/2,Math.min(H-GAP-hh/2,y));
+  const refl=y=>{const P=2*R;y=((y%P)+P)%P;return y>R?P-y:y};
+  const okG=g=>!!g&&typeof g==='object'&&Number.isFinite(g.e)&&Number.isFinite(g.x)&&Number.isFinite(g.y)&&Array.isArray(g.s)&&(g.o===0||g.o===1);
+  const copy=g=>({...g,s:[g.s[0]|0,g.s[1]|0]});
+  function extrap(s,t){t=Math.max(0,Math.min(t,.25));const c={...s};if(c.ph==='play'){c.x=s.x+s.vx*t;c.y=refl(s.y+s.vy*t)}else if(c.ph==='count'||c.ph==='wait')c.rem=s.rem-t*1000;return c}
+  function pack(g){return{e:g.e,o:g.o,ph:g.ph,rem:Math.round(g.rem||0),x:Math.round(g.x*10)/10,y:Math.round(g.y*10)/10,vx:Math.round(g.vx*10)/10,vy:Math.round(g.vy*10)/10,h:g.h,m:g.m,s:g.s,w:g.w}}
+  function scan(){const out=[null,null];for(const p of room.peers()){if(p.isMe)continue;const pr=p.presence||{};const id=p.by||pr.uid;const s=id===a?0:id===b?1:-1;if(s<0||pr.side!==s)continue;if(!out[s]||p.updatedAt>out[s].updatedAt)out[s]=p}return out}
+
+  /* ---- owner physics ---- */
+  function serve(){const sp=TIERS[0];G.ph='play';G.x=W/2-BS/2;G.y=H*(.2+Math.random()*.6);G.vx=(G.o===0?-1:1)*sp;G.vy=[-.67,-.33,.33,.67][Math.floor(Math.random()*4)]*sp*.9;G.h=0;G.m=0;G.e++}
+  function hit(nx,dir){const hh=hts[side];const rel=(G.y+BS/2-(myY-hh/2))/hh;const seg=Math.max(0,Math.min(7,Math.floor(rel*8)));G.h++;const sp=tier(G.h);G.x=nx;G.vx=dir*sp;G.vy=SEG[seg]*sp*.9;G.e++;G.o=1-side;G.m=0;Gat=Date.now();sfx.paddle()}
+  function point(to){G.s=[G.s[0],G.s[1]];G.s[to]++;G.e++;G.h=0;G.m=0;G.vx=0;G.vy=0;G.x=W/2-BS/2;G.y=H/2-BS/2;sfx.point();
+    if(G.s[to]>=WIN){G.ph='over';G.w=to}else{G.ph='wait';G.rem=1500;G.o=side}Gat=Date.now();onScore(G.s.slice())}
+  function step(dt){
+    if(!G||G.o!==side)return;
+    if(G.ph==='count'||G.ph==='wait'){G.rem-=dt*1000;if(G.rem<=0)serve();return}
+    if(G.ph!=='play')return;
+    const n=Math.max(1,Math.ceil(dt*240)),hs=dt/n,hh=hts[side];
+    for(let i=0;i<n;i++){
+      const px=G.x;G.x+=G.vx*hs;G.y+=G.vy*hs;
+      if(G.y<0){G.y=-G.y;G.vy=-G.vy;sfx.wall()}else if(G.y>R){G.y=2*R-G.y;G.vy=-G.vy;sfx.wall()}
+      const inY=G.y+BS>=myY-hh/2&&G.y<=myY+hh/2;
+      if(side===0){const face=AX+PW;if(!G.m&&G.vx<0&&px>=face&&G.x<face){if(inY){hit(face,1);return}G.m=1}if(G.x<-BS){point(1);return}}
+      else{const face=BX;if(!G.m&&G.vx>0&&px+BS<=face&&G.x+BS>face){if(inY){hit(face-BS,-1);return}G.m=1}if(G.x>W){point(0);return}}
+    }
+  }
+  function adopt(og,at){
+    if(!G||og.e>G.e){
+      const prev=G;G=copy(og);Gat=at;
+      if(prev){if(G.h>prev.h&&G.ph==='play')sfx.paddle();if(G.s[0]+G.s[1]>prev.s[0]+prev.s[1])sfx.point()}
+      if(G.o===side&&G.ph==='play')step(Math.min(.3,Math.max(0,(Date.now()-at)/1000)));
+    }else if(og.e===G.e&&G.o!==side){
+      if(G.ph==='play'&&og.vy!==G.vy&&Math.sign(og.vy)!==Math.sign(G.vy))sfx.wall();
+      G=copy(og);Gat=at;
+    }
+  }
+
+  /* ---- drawing ---- */
+  function num(n,cx,top,cell=12){const s=String(n);const w=s.length*3*cell+(s.length-1)*cell;let x=cx-w/2;for(const ch of s){const g=FONT[ch];if(g)for(let r=0;r<5;r++)for(let c=0;c<3;c++)if(g[r][c]==='1')ctx.fillRect(x+c*cell,top+r*cell,cell,cell);x+=4*cell}}
+  function draw(st){
+    ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);ctx.fillStyle='#fff';
+    for(let y=7;y<H;y+=30)ctx.fillRect(W/2-2,y,4,16);
+    const sc=st?st.s:score0;num(sc[0]|0,W/4,28);num(sc[1]|0,W*3/4,28);
+    let grow=1;if(st&&st.e===0&&st.ph==='count'){const t=Math.max(0,Math.min(1,(3200-st.rem)/1600));grow=1-Math.pow(1-t,3)}
+    for(const s of [0,1]){const hh=BASE+(hts[s]-BASE)*grow;ctx.fillRect(s?BX:AX,cy(ys[s],hh)-hh/2,PW,hh)}
+    if(st&&st.ph==='play')ctx.fillRect(st.x,st.y,BS,BS);
+    if(st&&st.ph==='count'){
+      const n=Math.max(1,Math.ceil(st.rem/1000));ctx.fillStyle='#000';ctx.fillRect(W/2-34,H/2-46,68,92);ctx.fillStyle='#fff';num(n,W/2,H/2-40,16);
+      ctx.font='600 22px "IBM Plex Mono", monospace';ctx.textBaseline='middle';
+      for(const s of [0,1]){const bonus=Math.round((hts[s]-BASE)/BASE*100);if(bonus>0){ctx.textAlign=s?'right':'left';ctx.fillText('+'+bonus+'%',s?BX-16:AX+PW+16,ys[s])}}
+    }
+  }
+  function setMsg(t){if(t!==lastMsg){lastMsg=t;msg.innerHTML=t?`<span>${t}</span>`:''}}
+
+  /* ---- loop ---- */
+  function frame(){
+    if(stopped)return;raf=requestAnimationFrame(frame);
+    const now=Date.now(),dt=Math.min(.05,Math.max(0,(now-last)/1000));last=now;
+    const ps=scan();
+    if(side>=0){
+      const d=(dn?1:0)-(up?1:0);myY=cy(myY+d*PSPD*dt,hts[side]);ys[side]=myY;
+      const op=ps[1-side];
+      if(op){const py=+op.presence.y;if(Number.isFinite(py))ys[1-side]=py;if(!both)both=now;const og=op.presence.g;if(og!==lastOg){lastOg=og;if(okG(og))adopt(og,op.updatedAt)}}else both=0;
+      if(!G&&op&&side===first&&now-both>1500&&!okG(op.presence.g)){G={e:0,o:first,ph:'count',rem:3200,x:W/2-BS/2,y:H/2-BS/2,vx:0,vy:0,h:0,m:0,s:[score0[0]|0,score0[1]|0],w:-1};Gat=now}
+      step(dt);
+      room.presence({side,uid:C.uid,y:Math.round(myY),g:G?pack(G):null}).catch(()=>{});
+      if(G&&G.ph==='over'&&!overDone){overDone=true;onOver(G.w,G.s.slice())}
+      setMsg(!op?`Waiting for ${esc(nameOf(side?a:b))} to join… · 상대 접속 대기 중`:!G?'Connecting… · 연결 중':'');
+    }else{
+      for(const s of [0,1]){const p=ps[s];if(p&&Number.isFinite(+p.presence.y))ys[s]=+p.presence.y}
+      let best=null,bp=null;
+      for(const s of [0,1]){const p=ps[s],g=p&&p.presence.g;if(!okG(g))continue;if(!best||g.e>best.e||(g.e===best.e&&g.o===s)){best=g;bp=p}}
+      if(best&&best!==G){G=best;Gat=bp.updatedAt}
+      setMsg(!G?'Waiting for the players… · 선수 접속 대기 중':'');
+    }
+    const st=!G?null:(side>=0&&G.o===side)?G:extrap(G,(now-Gat)/1000);
+    draw(st);
+  }
+
+  /* ---- sizing + input ---- */
+  const mq=matchMedia('(max-width:720px), (orientation:portrait) and (max-width:1000px)');
+  function fit(){
+    const wrap=cv.parentElement.parentElement;const ww=wrap.clientWidth;
+    const reserve=(side>=0&&mq.matches)?150:24;
+    const avail=Math.max(200,window.innerHeight-Math.max(0,cv.getBoundingClientRect().top)-reserve);
+    const w=Math.max(200,Math.floor(Math.min(ww,avail*4/3,1100))),hpx=Math.floor(w*3/4);
+    cv.style.width=w+'px';cv.style.height=hpx+'px';
+    const dpr=window.devicePixelRatio||1;cv.width=Math.round(w*dpr);cv.height=Math.round(hpx*dpr);
+    ctx.setTransform(cv.width/W,0,0,cv.height/H,0,0);ctx.imageSmoothingEnabled=false;
+  }
+  const hold=(btn,set)=>{if(!btn)return;const on=e=>{e.preventDefault();ensureAudio();set(true);btn.classList.add('held');try{btn.setPointerCapture(e.pointerId)}catch(err){}};const off=()=>{set(false);btn.classList.remove('held')};btn.addEventListener('pointerdown',on);['pointerup','pointercancel','lostpointercapture'].forEach(t=>btn.addEventListener(t,off));btn.addEventListener('contextmenu',e=>e.preventDefault())};
+  hold(o.up,v=>{up=v});hold(o.dn,v=>{dn=v});
+  const kd=e=>{if(side<0)return;const k=e.key.toLowerCase();if(k==='arrowup'||k==='w'){up=true;e.preventDefault()}else if(k==='arrowdown'||k==='s'){dn=true;e.preventDefault()}};
+  const ku=e=>{const k=e.key.toLowerCase();if(k==='arrowup'||k==='w')up=false;else if(k==='arrowdown'||k==='s')dn=false};
+  const blur=()=>{up=dn=false;o.up&&o.up.classList.remove('held');o.dn&&o.dn.classList.remove('held')};
+  window.addEventListener('keydown',kd);window.addEventListener('keyup',ku);window.addEventListener('blur',blur);window.addEventListener('resize',fit);
+  fit();setTimeout(fit,200);
+  raf=requestAnimationFrame(frame);
+  return{stop(){stopped=true;cancelAnimationFrame(raf);window.removeEventListener('keydown',kd);window.removeEventListener('keyup',ku);window.removeEventListener('blur',blur);window.removeEventListener('resize',fit);try{room.presence({g:null}).catch(()=>{})}catch(e){}}};
+}
+
+boot();
+</script>
+</body>
+</html>
+
