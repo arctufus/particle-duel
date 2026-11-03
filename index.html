@@ -101,6 +101,14 @@ kbd{font-family:var(--mono);font-size:.8em;padding:1px 6px;border:1px solid curr
 .chk input{margin-top:4px;accent-color:var(--ink);width:16px;height:16px}
 .chk span{display:flex;flex-direction:column;line-height:1.3}
 .chk b{font-size:15px}.chk small{color:var(--muted);font-size:13px}
+.setrow{display:flex;flex-direction:column;gap:6px}
+.setrow .lbl{font-size:14px;font-weight:600}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg label{position:relative}
+.seg input{position:absolute;opacity:0;inset:0;margin:0}
+.seg span{display:block;padding:7px 14px;border:1px solid var(--line);border-radius:999px;font-weight:600;font-size:15px;font-variant-numeric:tabular-nums;cursor:pointer}
+.seg input:checked+span{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.seg input:focus-visible+span{outline:3px solid var(--blue);outline-offset:2px}
 .plan{font-family:var(--mono);font-size:14px;padding:10px 12px;border-radius:10px;background:var(--surface2)}
 
 /* pills */
@@ -423,7 +431,9 @@ function genQuestion(types,used){
 function quizFor(m){return withSeed(hashStr('q:'+m.id),()=>{const used=new Set();return [0,1,2].map(()=>genQuestion(m.types||ALLTYPES,used))})}
 
 /* ================= constants ================= */
-const QN=3,QTIME=20000,BASE=50,BONUS=10,PFIELD=300;
+const QN=3,BASE=40,BONUS=8,PFIELD=300;
+const WIN_OPTS=[5,7,11,15,21],QT_OPTS=[10,15,20,30,45,60];
+const gWin=()=>(D.game&&D.game.win)||11,gQt=()=>(D.game&&D.game.qtime)||20;
 const padPct=c=>Math.round((BASE+BONUS*c)/BASE*100);
 const lenPct=c=>((BASE+BONUS*c)/PFIELD*100).toFixed(1);
 const qid=(mid,uid)=>mid+'~'+uid;
@@ -472,6 +482,7 @@ async function boot(){
 function subscribeAll(){
   const t=setTimeout(()=>{D.slow=true;if(!D.gameLoaded)renderHome()},10000);
   const on=(path,cb)=>C.db.ref(path).on('value',s=>{cb(s.val());onData()},e=>{D.err=(e&&e.code)||'error';D.gameLoaded=D.hostLoaded=true;clearTimeout(t);onData()});
+  C.db.ref('.info/serverTimeOffset').on('value',s=>{C.off=+s.val()||0});
   on('host',v=>{D.host=typeof v==='string'?v:null;D.hostLoaded=true;C.isHost=!!C.uid&&D.host===C.uid});
   on('game',v=>{clearTimeout(t);D.slow=false;D.game=v&&typeof v==='object'?v:null;D.gameLoaded=true;D.tid=(D.game&&D.game.tid)||null;recompute()});
   on('players',v=>{D.playersAll=v&&typeof v==='object'?v:{};recompute()});
@@ -498,7 +509,7 @@ function liveRoom(mid){
   return{
     watch(sides){for(const sd of sides){if(watching.has(sd))continue;watching.add(sd);const r=base.child(String(sd));const f=r.on('value',snap=>{const v=snap.val();if(v&&typeof v==='object')peers[sd]={by:v.uid||null,isMe:v.uid===C.uid,sameTab:false,presence:v,updatedAt:Date.now()};else delete peers[sd]});offs.push(()=>r.off('value',f))}},
     peers:()=>Object.values(peers),
-    presence(patch){if(left)return Promise.resolve();const n={...(mine||{})};for(const k in patch){if(patch[k]===null)delete n[k];else n[k]=patch[k]}mine=n;const now=Date.now();if(now-lastAt>=50)flush();else if(!timer)timer=setTimeout(flush,50-(now-lastAt));return Promise.resolve()},
+    presence(patch){if(left)return Promise.resolve();const n={...(mine||{})};for(const k in patch){if(patch[k]===null)delete n[k];else n[k]=patch[k]}mine=n;const now=Date.now();if(now-lastAt>=30)flush();else if(!timer)timer=setTimeout(flush,30-(now-lastAt));return Promise.resolve()},
     leave(){left=true;clearTimeout(timer);offs.forEach(f=>f());if(dcSide!==null)base.child(String(dcSide)).remove().catch(()=>{});return Promise.resolve()}
   };
 }
@@ -553,7 +564,7 @@ async function createRound(r,ids,g){
   const mids=[];
   for(let i=0;i<order.length;i+=2){
     const mid=`${g.tid}-r${r}-m${i/2}`;mids.push(mid);
-    await C.db.ref('matches/'+mid).set({tid:g.tid,r,i:i/2,a:order[i],b:order[i+1],w:null,status:'quiz',score:[0,0],types:g.types||ALLTYPES,at:Date.now()});
+    await C.db.ref('matches/'+mid).set({tid:g.tid,r,i:i/2,a:order[i],b:order[i+1],w:null,status:'quiz',score:[0,0],types:g.types||ALLTYPES,win:g.win||11,qtime:g.qtime||20,at:Date.now()});
   }
   await C.db.ref('game').update({rounds:[...(g.rounds||[]),{r,mids,bye,n:ids.length}]});
 }
@@ -614,9 +625,9 @@ function linkBox(){return `<div class="linkbox"><code id="slink">${esc(studentLi
 function howCard(open){
   return `<details class="panel how"${open?' open':''}><summary>How to play · 진행 방법</summary><ol>
     <li>Open the class link, type your name and tap <b>Join</b>. No account needed.<span>링크를 열고 이름을 입력한 뒤 참가하기를 누릅니다. 가입은 필요 없습니다.</span></li>
-    <li>Each match starts with the same 3 questions for both players, 20 seconds each.<span>두 사람이 같은 문제 3개를 풉니다. 문제당 20초.</span></li>
+    <li>Each match starts with the same 3 questions for both players, ${gQt()} seconds each.<span>두 사람이 같은 문제 3개를 풉니다. 문제당 ${gQt()}초.</span></li>
     <li>Every correct answer makes your Pong paddle 20% longer, up to +60%.<span>맞힐 때마다 막대가 20%씩 길어집니다 (최대 +60%).</span></li>
-    <li>Then play Pong. First to 11 wins. The ball speeds up on the 4th and 12th hit of a rally, and where it hits your paddle sets the angle. Paddles can’t reach the very top and bottom edges.<span>11점 먼저 내면 승리. 랠리 4번째·12번째 타격에서 공이 빨라지고, 막대 맨 위·아래에는 닿지 않는 사각지대가 있습니다.</span></li>
+    <li>Then play Pong. First to ${gWin()} wins. The ball speeds up on the 4th and 12th hit of a rally, and where it hits your paddle sets the angle. Paddles can’t reach the very top and bottom edges.<span>${gWin()}점 먼저 내면 승리. 랠리 4번째·12번째 타격에서 공이 빨라지고, 막대 맨 위·아래에는 닿지 않는 사각지대가 있습니다.</span></li>
     <li>Hold the ▲ ▼ buttons (or ↑ ↓ keys) to move your paddle.<span>▲ ▼ 버튼(또는 키보드 ↑ ↓)을 누르고 있으면 막대가 움직입니다.</span></li>
     <li>Winners move on. With an odd number of players, one player gets a bye and watches a live match.<span>이긴 사람이 다음 라운드로. 인원이 홀수면 1명이 부전승으로 올라가고 다른 경기를 관람합니다.</span></li>
   </ol></details>`;
@@ -644,6 +655,9 @@ function hostClaimView(){
   if(!D.host)return `<section class="status go"><div><h2>Make this device the host · 이 기기를 진행자로</h2><p>The host device opens the lobby, starts the tournament and draws each round. Use the computer you will project. · 프로젝터에 연결된 컴퓨터에서 누르세요.</p></div><div class="acts"><button class="btn primary big" id="claim">Become host · 진행자 되기</button></div></section>`;
   return `<section class="status"><div><h2>Another device is the host · 다른 기기가 진행자입니다</h2><p>To move hosting here, press “Release host” on that device, or open the Firebase console → Realtime Database, delete the <b>host</b> entry, and reload this page. · 기존 기기에서 “진행자 해제”를 누르거나 Firebase 콘솔에서 host 항목을 지운 뒤 새로고침하세요.</p></div></section>`;
 }
+function segBox(key,label,opts,cur,fmtv){
+  return `<div class="setrow"><span class="lbl">${label}</span><div class="seg" role="radiogroup" aria-label="${label}">${opts.map(v=>`<label><input type="radio" name="${key}" id="${key}-${v}" value="${v}" ${v===cur?'checked':''}><span>${fmtv(v)}</span></label>`).join('')}</div></div>`;
+}
 function typesBox(g){
   return `<div class="types">${Object.entries(TYPES).map(([k,[en,ko]])=>`<label class="chk"><input type="checkbox" id="ty-${k}" data-k="${k}" ${(g.types||ALLTYPES)[k]?'checked':''}><span><b>${en}</b><small>${ko}</small></span></label>`).join('')}</div>`;
 }
@@ -663,12 +677,13 @@ function lobbyView(g){
   if(C.isHost){
     right=`<section class="panel"><h2>Teacher controls <span class="ko">교사 설정</span></h2>
       <p class="note">Share this link with students (without <b>?host</b>). Keep this page open: it draws each new round automatically. · 학생에게 아래 링크를 공유하고, 이 화면을 켜 두세요.</p>${linkBox()}
+      <h2>Match settings <span class="ko">경기 설정</span></h2>${segBox('win','Points to win · 승리 점수',WIN_OPTS,gWin(),v=>v+'점')}${segBox('qtime','Time per question · 문제당 시간',QT_OPTS,gQt(),v=>v+'초')}
       <h2>Question types <span class="ko">문제 유형</span></h2>${typesBox(g)}
       <div class="plan">${n>=2?`${pl.seq.join(' → ')} · ${pl.rounds} round${pl.rounds>1?'s':''}${pl.byes?` · ${pl.byes} bye${pl.byes>1?'s':''} (부전승)`:''}`:'Need at least 2 players · 최소 2명'}</div>
       <button class="btn primary big" id="start" ${n<2?'disabled':''}>Start tournament · 토너먼트 시작</button>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm ghost" id="reset">Clear lobby · 대기실 초기화</button><button class="btn sm ghost" id="release">Release host · 진행자 해제</button></div></section>`;
   }else{
-    right=`<section class="panel"><h2>Your paddle <span class="ko">나의 막대</span></h2><p class="note">Answer fast and right: each correct answer adds 20% to your Pong paddle. · 정답 하나마다 막대 +20%.</p>${padsDemo()}</section>`;
+    right=`<section class="panel"><h2>Your paddle <span class="ko">나의 막대</span></h2><p class="note">Answer within ${gQt()} seconds: each correct answer adds 20% to your Pong paddle. First to ${gWin()} points wins. · 문제당 ${gQt()}초, 정답 하나마다 막대 +20%, ${gWin()}점 선승.</p>${padsDemo()}</section>`;
   }
   return `<div class="grid2">${left}${right}</div>`;
 }
@@ -709,7 +724,7 @@ function liveCard(m){
   const ph=phaseOf(m);
   const qa=D.quiz[qid(m.id,m.a)],qb=D.quiz[qid(m.id,m.b)];
   const pill=ph==='quiz'?`<span class="pill q dot">Questions · 문제</span>`:`<span class="pill p dot">Pong ${(m.score||[0,0])[0]}–${(m.score||[0,0])[1]}</span>`;
-  const sub=ph==='quiz'?`${(qa&&qa.ans||[]).length}/3 · ${(qb&&qb.ans||[]).length}/3 answered`:'First to 11 · 11점 선승';
+  const sub=ph==='quiz'?`${(qa&&qa.ans||[]).length}/3 · ${(qb&&qb.ans||[]).length}/3 answered`:`First to ${m.win||11} · ${m.win||11}점 선승`;
   const host=C.isHost?`<div class="award"><button class="btn sm" data-award="${esc(m.id)}" data-side="0">${nameSpan(m.a)} wins</button><button class="btn sm" data-award="${esc(m.id)}" data-side="1">${nameSpan(m.b)} wins</button></div>`:'';
   return `<div class="lm"><div class="row">${pill}<span class="sub">${sub}</span></div><div class="vsl"><span style="color:var(--red)">${nameSpan(m.a)}</span><em>vs</em><span style="color:var(--blue)">${nameSpan(m.b)}</span></div><div class="row"><button class="btn sm primary" data-watch="${esc(m.id)}">Watch · 관람</button></div>${host}</div>`;
 }
@@ -747,6 +762,7 @@ function wireHome(){
   on('#advance',hostAdvance);
   twoStep($('#newt'),'Click again to reset · 한 번 더 누르면 새 대회',hostNewLobby);
   twoStep($('#reset'),'Click again to clear · 한 번 더 누르면 초기화',hostNewLobby);
+  document.querySelectorAll('input[name=win],input[name=qtime]').forEach(r=>r.addEventListener('change',()=>{if(r.checked)writeDoc('game',{[r.name]:+r.value},'update')}));
   document.querySelectorAll('[data-kick]').forEach(b=>b.addEventListener('click',()=>leaveLobby(b.dataset.kick)));
   document.querySelectorAll('.types input').forEach(c=>c.addEventListener('change',()=>{const t={...((D.game&&D.game.types)||ALLTYPES),[c.dataset.k]:c.checked};if(!Object.values(t).some(Boolean)){c.checked=true;toast('Keep at least one question type. · 문제 유형을 하나 이상 선택하세요.');return}writeDoc('game',{types:t},'update')}));
   document.querySelectorAll('[data-watch]').forEach(b=>b.addEventListener('click',()=>openMatch(b.dataset.watch,true)));
@@ -841,7 +857,7 @@ function settlePads(m){requestAnimationFrame(()=>requestAnimationFrame(()=>updat
 function initQuiz(m){
   const d=D.quiz[qid(m.id,C.uid)];
   const ans=d&&Array.isArray(d.ans)?d.ans.slice(0,QN):[];
-  MV.q={qs:quizFor(m),ans:[...ans],idx:ans.length,state:ans.length>=QN?'finished':'active',locked:false,tick:0,adv:0};
+  MV.q={qt:(m.qtime||20)*1000,qs:quizFor(m),ans:[...ans],idx:ans.length,state:ans.length>=QN?'finished':'active',locked:false,tick:0,adv:0};
 }
 function buildQuiz(){
   const m=D.matches[MV.mid];
@@ -850,8 +866,8 @@ function buildQuiz(){
 }
 function showQ(){
   const q=MV.q,item=q.qs[q.idx];
-  q.locked=false;q.deadline=Date.now()+QTIME;
-  $('#qbox').innerHTML=`<div class="qtop"><span>Question ${q.idx+1} / ${QN} · ${TYPES[item.type][0]}</span><span class="tnum" id="tnum">20</span></div>
+  q.locked=false;q.deadline=Date.now()+q.qt;
+  $('#qbox').innerHTML=`<div class="qtop"><span>Question ${q.idx+1} / ${QN} · ${TYPES[item.type][0]}</span><span class="tnum" id="tnum">${Math.round(q.qt/1000)}</span></div>
     <div class="tbar" id="tbarw"><i id="tbar"></i></div>
     <h3 class="prompt">${item.prompt}</h3><p class="prompt-ko">${item.ko}</p>
     <div class="stage">${item.stage}</div>
@@ -859,7 +875,7 @@ function showQ(){
     <div class="fb" id="fb" hidden></div>`;
   document.querySelectorAll('.qopt').forEach(b=>b.addEventListener('click',()=>answerQ(+b.dataset.i)));
   clearInterval(q.tick);
-  const tickFn=()=>{if(!MV||MV.q!==q||q.locked)return;const rem=Math.max(0,q.deadline-Date.now());const tn=$('#tnum'),tb=$('#tbar'),tw=$('#tbarw');if(tn){tn.textContent=Math.ceil(rem/1000);tn.classList.toggle('low',rem<5000)}if(tb)tb.style.transform=`scaleX(${rem/QTIME})`;if(tw)tw.classList.toggle('low',rem<5000);if(rem<=0)answerQ(-1)};
+  const tickFn=()=>{if(!MV||MV.q!==q||q.locked)return;const rem=Math.max(0,q.deadline-Date.now());const tn=$('#tnum'),tb=$('#tbar'),tw=$('#tbarw');if(tn){tn.textContent=Math.ceil(rem/1000);tn.classList.toggle('low',rem<Math.min(5000,q.qt/3))}if(tb)tb.style.transform=`scaleX(${rem/q.qt})`;if(tw)tw.classList.toggle('low',rem<Math.min(5000,q.qt/3));if(rem<=0)answerQ(-1)};
   tickFn();q.tick=setInterval(tickFn,100);
 }
 function answerQ(i){
@@ -909,7 +925,7 @@ function buildPong(){
   const bonus=s=>{const c=correctOf(m,s);return c?` <span class="you">+${c*20}%</span>`:''};
   const ctrl=side>=0?`<div class="ctrl"><button class="arrow" id="bup" aria-label="Move paddle up">${ARROW_UP}</button><button class="arrow" id="bdn" aria-label="Move paddle down">${ARROW_DN}</button></div>`:'';
   app.innerHTML=`<div class="mwrap">${mhead(m,true)}
-    <div class="pbar"><div class="pn L">${nameSpan(m.a)}${side===0?' <span class="you">you</span>':''}${bonus(0)}</div><div class="pmid"><span class="pill">First to 11 · 11점</span><button class="btn sm ghost" id="snd">${MUTED?'Sound off':'Sound on'}</button></div><div class="pn R">${bonus(1)}${side===1?' <span class="you">you</span>':''} ${nameSpan(m.b)}</div></div>
+    <div class="pbar"><div class="pn L">${nameSpan(m.a)}${side===0?' <span class="you">you</span>':''}${bonus(0)}</div><div class="pmid"><span class="pill">First to ${m.win||11} · ${m.win||11}점</span><button class="btn sm ghost" id="snd">${MUTED?'Sound off':'Sound on'}</button></div><div class="pn R">${bonus(1)}${side===1?' <span class="you">you</span>':''} ${nameSpan(m.b)}</div></div>
     <div class="pongs ${side===1?'right':side<0?'watch':''}">${ctrl}<div class="cvwrap"><div class="cvbox"><canvas id="cv" width="800" height="600" aria-label="Pong game"></canvas><div class="cvmsg" id="cvmsg"></div></div></div></div>
     ${side>=0?`<p class="phint">Hold ▲ ▼ to move · 버튼을 누르고 있으면 움직입니다 (keyboard ↑ ↓ / W S)</p>`:''}
     ${switcherHTML()}</div>`;
@@ -920,7 +936,7 @@ function buildPong(){
     if(MV!==my||MV.screen!=='pong')return;
     if(!room){$('#cvmsg').innerHTML='<span>Live connection unavailable. Reload the page. · 실시간 연결을 할 수 없습니다.</span>';return}
     const mm=D.matches[mid];
-    my.pong=createPong({mid,a:mm.a,b:mm.b,side,room,hts:[BASE+BONUS*correctOf(mm,0),BASE+BONUS*correctOf(mm,1)],score0:Array.isArray(mm.score)?mm.score:[0,0],first:hashStr('serve:'+mid)%2,
+    my.pong=createPong({mid,a:mm.a,b:mm.b,side,room,hts:[BASE+BONUS*correctOf(mm,0),BASE+BONUS*correctOf(mm,1)],score0:Array.isArray(mm.score)?mm.score:[0,0],first:hashStr('serve:'+mid)%2,win:mm.win||11,
       cv:$('#cv'),msg:$('#cvmsg'),up:$('#bup'),dn:$('#bdn'),
       onScore:s=>writeDoc('matches/'+mid,{score:s},'update'),
       onOver:(w,s)=>{const x=D.matches[mid];if(x&&x.w==null)writeDoc('matches/'+mid,{w:w?x.b:x.a,score:s,status:'done',endedAt:Date.now()},'update')}});
@@ -940,94 +956,110 @@ function buildResult(){
 }
 
 /* ================= Pong engine =================
-   Field 800×600. Each player owns the ball while it travels toward them and decides hits with their own paddle;
-   on a hit the ball (epoch e+1) passes to the other player. State travels in room presence. */
+   Field 800×600. The player the ball is travelling toward owns it and decides hits with their own paddle.
+   Every state carries a server-synced timestamp, so all screens draw the same straight-line flight
+   between events; only serves, hits, points, paddle direction changes and a 1 s heartbeat are sent. */
 function createPong(o){
   const {a,b,side,room,hts,score0,first,cv,msg,onScore,onOver}=o;
-  const W=800,H=600,BS=12,PW=12,AX=36,BX=W-AX-PW,GAP=26,PSPD=540,WIN=11,R=H-BS;
+  const W=800,H=600,BS=12,PW=12,AX=36,BX=W-AX-PW,GAP=26,PSPD=540,R=H-BS,WIN=o.win||11;
   const SEG=[-1,-.67,-.33,0,0,.33,.67,1],TIERS=[300,400,520];
   const ctx=cv.getContext('2d');
   const FONT={0:['111','101','101','101','111'],1:['001','001','001','001','001'],2:['111','001','111','100','111'],3:['111','001','111','001','111'],4:['101','101','111','001','001'],5:['111','100','111','001','111'],6:['111','100','111','101','111'],7:['111','001','001','001','001'],8:['111','101','111','101','111'],9:['111','101','111','001','111']};
-  let G=null,Gat=0,myY=H/2,up=false,dn=false,last=Date.now(),raf=0,stopped=false,both=0,lastOg=null,overDone=false,lastMsg=null;
-  const ys=[H/2,H/2];
+  const now=()=>Date.now()+(C.off||0);
+  let G=null,myY=H/2,myD=0,up=false,dn=false,last=performance.now(),raf=0,stopped=false,both=0,lastOg=null,overDone=false,lastMsg=null,sentD=null,lastPub=0;
+  let base=null,err={x:0,y:0},prevShown=null,prevSeg=null;
+  const py=[H/2,H/2];
   const tier=h=>TIERS[h>=12?2:h>=4?1:0];
   const cy=(y,hh)=>Math.max(GAP+hh/2,Math.min(H-GAP-hh/2,y));
-  const refl=y=>{const P=2*R;y=((y%P)+P)%P;return y>R?P-y:y};
-  const okG=g=>!!g&&typeof g==='object'&&Number.isFinite(g.e)&&Number.isFinite(g.x)&&Number.isFinite(g.y)&&Array.isArray(g.s)&&(g.o===0||g.o===1);
+  const okG=g=>!!g&&typeof g==='object'&&['e','x','y','t'].every(k=>Number.isFinite(g[k]))&&Array.isArray(g.s)&&(g.o===0||g.o===1);
   const copy=g=>({...g,s:[g.s[0]|0,g.s[1]|0]});
-  function extrap(s,t){t=Math.max(0,Math.min(t,.25));const c={...s};if(c.ph==='play'){c.x=s.x+s.vx*t;c.y=refl(s.y+s.vy*t)}else if(c.ph==='count'||c.ph==='wait')c.rem=s.rem-t*1000;return c}
-  function pack(g){return{e:g.e,o:g.o,ph:g.ph,rem:Math.round(g.rem||0),x:Math.round(g.x*10)/10,y:Math.round(g.y*10)/10,vx:Math.round(g.vx*10)/10,vy:Math.round(g.vy*10)/10,h:g.h,m:g.m,s:g.s,w:g.w}}
-  function scan(){const out=[null,null];for(const p of room.peers()){if(p.isMe)continue;const pr=p.presence||{};const id=p.by||pr.uid;const s=id===a?0:id===b?1:-1;if(s<0||pr.side!==s)continue;if(!out[s]||p.updatedAt>out[s].updatedAt)out[s]=p}return out}
+  function at(g,T){const c={...g};if(g.ph==='play'){const dt=Math.max(0,Math.min(4,(T-g.t)/1000));c.x=g.x+g.vx*dt;const Y=g.y+g.vy*dt,P=2*R;const y=((Y%P)+P)%P;c.y=y>R?P-y:y;c.seg=Math.floor(Y/R)}return c}
+  function pack(g){return{e:g.e,o:g.o,ph:g.ph,x:Math.round(g.x*100)/100,y:Math.round(g.y*100)/100,vx:Math.round(g.vx*100)/100,vy:Math.round(g.vy*100)/100,t:Math.round(g.t),end:Math.round(g.end||0),h:g.h|0,m:g.m|0,s:[g.s[0]|0,g.s[1]|0],w:g.w}}
+  function publish(){lastPub=performance.now();sentD=myD;room.presence({side,uid:C.uid,y:Math.round(myY*10)/10,d:myD,t:Math.round(now()),g:G?pack(G):null}).catch(()=>{})}
+  function scan(){const out=[null,null];for(const p of room.peers()){if(p.isMe)continue;const pr=p.presence||{};const id=p.by||pr.uid;const s=id===a?0:id===b?1:-1;if(s<0||pr.side!==s)continue;out[s]=p}return out}
 
   /* ---- owner physics ---- */
-  function serve(){const sp=TIERS[0];G.ph='play';G.x=W/2-BS/2;G.y=H*(.2+Math.random()*.6);G.vx=(G.o===0?-1:1)*sp;G.vy=[-.67,-.33,.33,.67][Math.floor(Math.random()*4)]*sp*.9;G.h=0;G.m=0;G.e++}
-  function hit(nx,dir){const hh=hts[side];const rel=(G.y+BS/2-(myY-hh/2))/hh;const seg=Math.max(0,Math.min(7,Math.floor(rel*8)));G.h++;const sp=tier(G.h);G.x=nx;G.vx=dir*sp;G.vy=SEG[seg]*sp*.9;G.e++;G.o=1-side;G.m=0;Gat=Date.now();sfx.paddle()}
+  function serve(T0){const sp=TIERS[0];G.ph='play';G.t=T0;G.x=W/2-BS/2;G.y=H*(.2+Math.random()*.6);G.vx=(G.o===0?-1:1)*sp;G.vy=[-.67,-.33,.33,.67][Math.floor(Math.random()*4)]*sp*.9;G.h=0;G.m=0;G.e++;publish()}
+  function hit(nx,dir){const hh=hts[side];const rel=(G.y+BS/2-(myY-hh/2))/hh;const seg=Math.max(0,Math.min(7,Math.floor(rel*8)));G.h++;const sp=tier(G.h);G.x=nx;G.vx=dir*sp;G.vy=SEG[seg]*sp*.9;G.e++;G.o=1-side;G.m=0;sfx.paddle();publish()}
   function point(to){G.s=[G.s[0],G.s[1]];G.s[to]++;G.e++;G.h=0;G.m=0;G.vx=0;G.vy=0;G.x=W/2-BS/2;G.y=H/2-BS/2;sfx.point();
-    if(G.s[to]>=WIN){G.ph='over';G.w=to}else{G.ph='wait';G.rem=1500;G.o=side}Gat=Date.now();onScore(G.s.slice())}
-  function step(dt){
+    if(G.s[to]>=WIN){G.ph='over';G.w=to}else{G.ph='wait';G.end=G.t+1500;G.o=side}publish();onScore(G.s.slice())}
+  function step(T){
     if(!G||G.o!==side)return;
-    if(G.ph==='count'||G.ph==='wait'){G.rem-=dt*1000;if(G.rem<=0)serve();return}
+    if(G.ph==='count'||G.ph==='wait'){if(T>=G.end)serve(G.end);else return}
     if(G.ph!=='play')return;
-    const n=Math.max(1,Math.ceil(dt*240)),hs=dt/n,hh=hts[side];
+    let span=(T-G.t)/1000;if(span<=0)return;if(span>.5){G.t=T-500;span=.5}
+    const n=Math.max(1,Math.ceil(span*240)),hs=span/n,hh=hts[side];
     for(let i=0;i<n;i++){
-      const px=G.x;G.x+=G.vx*hs;G.y+=G.vy*hs;
+      const px=G.x;G.x+=G.vx*hs;G.y+=G.vy*hs;G.t+=hs*1000;
       if(G.y<0){G.y=-G.y;G.vy=-G.vy;sfx.wall()}else if(G.y>R){G.y=2*R-G.y;G.vy=-G.vy;sfx.wall()}
       const inY=G.y+BS>=myY-hh/2&&G.y<=myY+hh/2;
       if(side===0){const face=AX+PW;if(!G.m&&G.vx<0&&px>=face&&G.x<face){if(inY){hit(face,1);return}G.m=1}if(G.x<-BS){point(1);return}}
       else{const face=BX;if(!G.m&&G.vx>0&&px+BS<=face&&G.x+BS>face){if(inY){hit(face-BS,-1);return}G.m=1}if(G.x>W){point(0);return}}
     }
   }
-  function adopt(og,at){
+  function adopt(og){
     if(!G||og.e>G.e){
-      const prev=G;G=copy(og);Gat=at;
+      const prev=G;G=copy(og);
       if(prev){if(G.h>prev.h&&G.ph==='play')sfx.paddle();if(G.s[0]+G.s[1]>prev.s[0]+prev.s[1])sfx.point()}
-      if(G.o===side&&G.ph==='play')step(Math.min(.3,Math.max(0,(Date.now()-at)/1000)));
-    }else if(og.e===G.e&&G.o!==side){
-      if(G.ph==='play'&&og.vy!==G.vy&&Math.sign(og.vy)!==Math.sign(G.vy))sfx.wall();
-      G=copy(og);Gat=at;
-    }
+      if(G.o===side){step(now());publish()}
+    }else if(og.e===G.e&&G.o!==side)G=copy(og);
   }
 
   /* ---- drawing ---- */
   function num(n,cx,top,cell=12){const s=String(n);const w=s.length*3*cell+(s.length-1)*cell;let x=cx-w/2;for(const ch of s){const g=FONT[ch];if(g)for(let r=0;r<5;r++)for(let c=0;c<3;c++)if(g[r][c]==='1')ctx.fillRect(x+c*cell,top+r*cell,cell,cell);x+=4*cell}}
-  function draw(st){
+  function draw(st,T){
     ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);ctx.fillStyle='#fff';
     for(let y=7;y<H;y+=30)ctx.fillRect(W/2-2,y,4,16);
     const sc=st?st.s:score0;num(sc[0]|0,W/4,28);num(sc[1]|0,W*3/4,28);
-    let grow=1;if(st&&st.e===0&&st.ph==='count'){const t=Math.max(0,Math.min(1,(3200-st.rem)/1600));grow=1-Math.pow(1-t,3)}
-    for(const s of [0,1]){const hh=BASE+(hts[s]-BASE)*grow;ctx.fillRect(s?BX:AX,cy(ys[s],hh)-hh/2,PW,hh)}
+    const rem=st&&(st.ph==='count'||st.ph==='wait')?(st.end||0)-T:0;
+    let grow=1;if(st&&st.e===0&&st.ph==='count'){const t=Math.max(0,Math.min(1,(3200-rem)/1600));grow=1-Math.pow(1-t,3)}
+    for(const s of [0,1]){const hh=BASE+(hts[s]-BASE)*grow;ctx.fillRect(s?BX:AX,cy(py[s],hh)-hh/2,PW,hh)}
     if(st&&st.ph==='play')ctx.fillRect(st.x,st.y,BS,BS);
     if(st&&st.ph==='count'){
-      const n=Math.max(1,Math.ceil(st.rem/1000));ctx.fillStyle='#000';ctx.fillRect(W/2-34,H/2-46,68,92);ctx.fillStyle='#fff';num(n,W/2,H/2-40,16);
+      const n=Math.max(1,Math.ceil(rem/1000));ctx.fillStyle='#000';ctx.fillRect(W/2-34,H/2-46,68,92);ctx.fillStyle='#fff';num(n,W/2,H/2-40,16);
       ctx.font='600 22px "IBM Plex Mono", monospace';ctx.textBaseline='middle';
-      for(const s of [0,1]){const bonus=Math.round((hts[s]-BASE)/BASE*100);if(bonus>0){ctx.textAlign=s?'right':'left';ctx.fillText('+'+bonus+'%',s?BX-16:AX+PW+16,ys[s])}}
+      for(const s of [0,1]){const bonus=Math.round((hts[s]-BASE)/BASE*100);if(bonus>0){ctx.textAlign=s?'right':'left';ctx.fillText('+'+bonus+'%',s?BX-16:AX+PW+16,py[s])}}
     }
   }
   function setMsg(t){if(t!==lastMsg){lastMsg=t;msg.innerHTML=t?`<span>${t}</span>`:''}}
 
   /* ---- loop ---- */
-  function frame(){
+  function padTarget(p,s,T){const pr=p.presence||{};let y=+pr.y;if(!Number.isFinite(y))return null;const d=+pr.d||0,pt=Number.isFinite(+pr.t)?+pr.t:T;y+=d*PSPD*Math.max(0,Math.min(1.5,(T-pt)/1000));return cy(y,hts[s])}
+  function frame(ts){
     if(stopped)return;raf=requestAnimationFrame(frame);
-    const now=Date.now(),dt=Math.min(.05,Math.max(0,(now-last)/1000));last=now;
-    const ps=scan();
+    const dt=Math.min(.05,Math.max(0,(ts-last)/1000));last=ts;
+    const T=now(),ps=scan(),k=1-Math.exp(-dt/0.05);
     if(side>=0){
-      const d=(dn?1:0)-(up?1:0);myY=cy(myY+d*PSPD*dt,hts[side]);ys[side]=myY;
+      myD=(dn?1:0)-(up?1:0);myY=cy(myY+myD*PSPD*dt,hts[side]);py[side]=myY;
       const op=ps[1-side];
-      if(op){const py=+op.presence.y;if(Number.isFinite(py))ys[1-side]=py;if(!both)both=now;const og=op.presence.g;if(og!==lastOg){lastOg=og;if(okG(og))adopt(og,op.updatedAt)}}else both=0;
-      if(!G&&op&&side===first&&now-both>1500&&!okG(op.presence.g)){G={e:0,o:first,ph:'count',rem:3200,x:W/2-BS/2,y:H/2-BS/2,vx:0,vy:0,h:0,m:0,s:[score0[0]|0,score0[1]|0],w:-1};Gat=now}
-      step(dt);
-      room.presence({side,uid:C.uid,y:Math.round(myY),g:G?pack(G):null}).catch(()=>{});
+      if(op){const ty=padTarget(op,1-side,T);if(ty!=null)py[1-side]+=(ty-py[1-side])*k;if(!both)both=ts;const og=op.presence.g;if(og!==lastOg){lastOg=og;if(okG(og))adopt(og)}}else both=0;
+      if(!G&&op&&side===first&&ts-both>1500&&!okG(op.presence.g)){G={e:0,o:first,ph:'count',end:T+3200,t:T,x:W/2-BS/2,y:H/2-BS/2,vx:0,vy:0,h:0,m:0,s:[score0[0]|0,score0[1]|0],w:-1};publish()}
+      step(T);
+      if(myD!==sentD||ts-lastPub>1000)publish();
       if(G&&G.ph==='over'&&!overDone){overDone=true;onOver(G.w,G.s.slice())}
       setMsg(!op?`Waiting for ${esc(nameOf(side?a:b))} to join… · 상대 접속 대기 중`:!G?'Connecting… · 연결 중':'');
     }else{
-      for(const s of [0,1]){const p=ps[s];if(p&&Number.isFinite(+p.presence.y))ys[s]=+p.presence.y}
-      let best=null,bp=null;
-      for(const s of [0,1]){const p=ps[s],g=p&&p.presence.g;if(!okG(g))continue;if(!best||g.e>best.e||(g.e===best.e&&g.o===s)){best=g;bp=p}}
-      if(best&&best!==G){G=best;Gat=bp.updatedAt}
+      let best=null;
+      for(const s of [0,1]){const p=ps[s];if(!p)continue;const ty=padTarget(p,s,T);if(ty!=null)py[s]+=(ty-py[s])*k;const g=p.presence.g;if(!okG(g))continue;if(!best||g.e>best.e||(g.e===best.e&&g.o===s))best=g}
+      if(best&&best!==lastOg){lastOg=best;G=copy(best)}
       setMsg(!G?'Waiting for the players… · 선수 접속 대기 중':'');
     }
-    const st=!G?null:(side>=0&&G.o===side)?G:extrap(G,(now-Gat)/1000);
-    draw(st);
+    let st=null;
+    if(G)st=(side>=0&&G.o===side)?{...G}:at(G,T);
+    if(st&&st.ph==='play'){
+      if(G!==base){
+        err={x:0,y:0};
+        if(prevShown&&prevShown.ph==='play'&&Math.sign(prevShown.vx)===Math.sign(st.vx)){const ex=prevShown.x-st.x,ey=prevShown.y-st.y;if(Math.hypot(ex,ey)<70)err={x:ex,y:ey}}
+        base=G;prevSeg=st.seg;
+      }else{
+        const f=Math.exp(-dt/0.09);err.x*=f;err.y*=f;
+        if(side>=0&&G.o!==side&&st.seg!==undefined&&prevSeg!==undefined&&st.seg!==prevSeg)sfx.wall();
+        prevSeg=st.seg;
+      }
+      st.x+=err.x;st.y+=err.y;
+    }else{base=G;err={x:0,y:0}}
+    prevShown=st;
+    draw(st,T);
   }
 
   /* ---- sizing + input ---- */
@@ -1038,7 +1070,7 @@ function createPong(o){
     const avail=Math.max(200,window.innerHeight-Math.max(0,cv.getBoundingClientRect().top)-reserve);
     const w=Math.max(200,Math.floor(Math.min(ww,avail*4/3,1100))),hpx=Math.floor(w*3/4);
     cv.style.width=w+'px';cv.style.height=hpx+'px';
-    const dpr=window.devicePixelRatio||1;cv.width=Math.round(w*dpr);cv.height=Math.round(hpx*dpr);
+    const dpr=Math.min(2,window.devicePixelRatio||1);cv.width=Math.round(w*dpr);cv.height=Math.round(hpx*dpr);
     ctx.setTransform(cv.width/W,0,0,cv.height/H,0,0);ctx.imageSmoothingEnabled=false;
   }
   const hold=(btn,set)=>{if(!btn)return;const on=e=>{e.preventDefault();ensureAudio();set(true);btn.classList.add('held');try{btn.setPointerCapture(e.pointerId)}catch(err){}};const off=()=>{set(false);btn.classList.remove('held')};btn.addEventListener('pointerdown',on);['pointerup','pointercancel','lostpointercapture'].forEach(t=>btn.addEventListener(t,off));btn.addEventListener('contextmenu',e=>e.preventDefault())};
