@@ -145,6 +145,12 @@ kbd{font-family:var(--mono);font-size:.8em;padding:1px 6px;border:1px solid curr
 .mc .r.lose{color:var(--muted)}
 .mc .r.lose span:first-child{text-decoration:line-through}
 .mc .r.mine span:first-child::after{content:" · you";font-family:var(--mono);font-size:11px;color:var(--muted)}
+.standings{display:flex;flex-direction:column;gap:6px}
+@media (min-width:861px){.grid2.sr{grid-template-columns:minmax(0,1fr) minmax(0,2fr)}}
+.mc.st .r{padding:8px 12px}
+.mc.st .sc b{color:var(--ink)}
+.glab{font-size:13px;font-weight:600;color:var(--muted);margin-top:4px}
+.round-body.rb-top{justify-content:flex-start}
 .mc .foot{padding:5px 12px;border-top:1px solid var(--line);background:var(--surface2);display:flex;justify-content:space-between;align-items:center;gap:6px}
 button.mc:hover{border-color:var(--muted)}
 .mc.bye .r{color:var(--muted);font-style:italic}
@@ -535,61 +541,92 @@ function nameSpan(id){return `<span data-uid="${esc(id||'')}">${esc(nameOf(id))}
 function paintNames(){document.querySelectorAll('[data-uid]').forEach(el=>{const n=nameOf(el.dataset.uid);if(el.textContent!==n)el.textContent=n});document.querySelectorAll('[data-uid-initial]').forEach(el=>{el.textContent=[...nameOf(el.dataset.uidInitial)][0]||'?'})}
 function refreshNames(){}
 
-/* ================= tournament logic ================= */
+/* ================= tournament logic =================
+   Placement tournament. A group of players competes for places lo..lo+n-1. Its players are paired
+   (one bye if odd); winners (and the bye) form a group for the top places, losers a group for the
+   bottom places. A group of one gets its final place. With ranking matches off, the losers' group
+   is not played and its players share the place lo. */
 function phaseOf(m){
   if(m.w!=null)return 'done';
   const qa=D.quiz[qid(m.id,m.a)],qb=D.quiz[qid(m.id,m.b)];
   if(m.status==='pong'||(qa&&qa.done&&qb&&qb.done))return 'pong';
   return 'quiz';
 }
+const rankOn=g=>!!g&&g.rank!==false;
+const loserOf=m=>m.w===m.a?m.b:m.a;
 function myActiveMatch(){if(!C.uid||!D.game||D.game.status!=='running')return null;for(const m of Object.values(D.matches))if(m.w==null&&(m.a===C.uid||m.b===C.uid))return m;return null}
-function curRound(){const r=(D.game&&D.game.rounds)||[];return r[r.length-1]||null}
-function liveMatches(){const rd=curRound();if(!rd||!D.game||D.game.status!=='running')return [];return rd.mids.map(id=>D.matches[id]).filter(m=>m&&m.w==null)}
-function byeAutoWatch(){const rd=curRound();if(!rd||!C.uid||rd.bye!==C.uid)return null;const key=D.tid+':'+rd.r;if(autoWatched[key])return null;const live=liveMatches();if(!live.length)return null;autoWatched[key]=true;return live[0].id}
-function roundLabel(rd){const n=rd.n;if(n<=2)return['Final','결승'];if(n<=4)return['Semifinal','준결승'];if(n<=8)return['Quarterfinal','8강'];return[`Round ${rd.r+1}`,`${rd.r+1}라운드`]}
-function planRounds(n){const seq=[n];let byes=0;while(n>1){if(n%2)byes++;n=Math.ceil(n/2);seq.push(n)}return{seq,rounds:seq.length-1,byes}}
+function groupsOf(g){return Object.entries((g&&g.groups)||{}).map(([key,gr])=>({key,...gr}))}
+function liveMatches(){if(!D.game||D.game.status!=='running')return [];return Object.values(D.matches).filter(m=>m.w==null).sort((x,y)=>(x.lo-y.lo)||(x.i-y.i))}
+function totalPlayers(g){const root=g&&g.groups&&g.groups.g;return root&&Array.isArray(root.players)?root.players.length:0}
+function placeLabel(lo,n){const hi=lo+n-1;if(n===2)return lo===1?['Final','결승']:[`Places ${lo}–${hi}`,`${lo}·${hi}위전`];return [`Places ${lo}–${hi}`,`${lo}–${hi}위 결정전`]}
+function matchLabel(m){if(!Number.isFinite(m.lo)||!Number.isFinite(m.n))return['Match','경기'];const [en,ko]=placeLabel(m.lo,m.n);return [`Round ${(m.r|0)+1} · ${en}`,ko]}
+function myOpenGroup(){let best=null;for(const gr of groupsOf(D.game))if(gr.state==='play'&&(gr.players||[]).includes(C.uid)&&(!best||gr.key.length>best.key.length))best=gr;return best}
+function byeAutoWatch(){const gr=myOpenGroup();if(!gr||gr.bye!==C.uid)return null;const key=D.tid+':'+gr.key;if(autoWatched[key])return null;const live=liveMatches();if(!live.length)return null;autoWatched[key]=true;return live[0].id}
+function planRounds(n){let r=0,k=n;while(k>1){k=Math.ceil(k/2);r++}return{rounds:r}}
 const newTid=()=>'t'+Date.now().toString(36);
 const plain=o=>JSON.parse(JSON.stringify(o||{}));
 
-async function createRound(r,ids,g){
-  const order=withSeed(hashStr(g.tid+':order:'+r),()=>shuffle(ids));
+function pairGroup(g,key,lo,ps,byes){
+  const order=withSeed(hashStr(g.tid+':'+key),()=>shuffle(ps));
   let bye=null;
   if(order.length%2){
-    const cnt={};(g.rounds||[]).forEach(rd=>{if(rd.bye)cnt[rd.bye]=(cnt[rd.bye]||0)+1});
-    const min=Math.min(...order.map(id=>cnt[id]||0));
-    const cands=order.filter(id=>(cnt[id]||0)===min);
-    bye=withSeed(hashStr(g.tid+':bye:'+r),()=>rnd(cands));
+    const min=Math.min(...order.map(u=>byes[u]||0));
+    const cands=order.filter(u=>(byes[u]||0)===min);
+    bye=withSeed(hashStr(g.tid+':bye:'+key),()=>rnd(cands));
     order.splice(order.indexOf(bye),1);
   }
-  const mids=[];
+  const mids=[],matches=[];
   for(let i=0;i<order.length;i+=2){
-    const mid=`${g.tid}-r${r}-m${i/2}`;mids.push(mid);
-    await C.db.ref('matches/'+mid).set({tid:g.tid,r,i:i/2,a:order[i],b:order[i+1],w:null,status:'quiz',score:[0,0],types:g.types||ALLTYPES,win:g.win||11,qtime:g.qtime||20,at:Date.now()});
+    const mid=`${g.tid}-${key}-m${i/2}`;mids.push(mid);
+    matches.push([mid,{tid:g.tid,gk:key,r:key.length-1,i:i/2,lo,n:ps.length,a:order[i],b:order[i+1],w:null,status:'quiz',score:[0,0],types:g.types||ALLTYPES,win:g.win||11,qtime:g.qtime||20,at:Date.now()}]);
   }
-  await C.db.ref('game').update({rounds:[...(g.rounds||[]),{r,mids,bye,n:ids.length}]});
+  return{mids,bye,matches};
 }
+async function splitGroup(g,key,gr,ms){
+  const winners=ms.map(m=>m.w);if(gr.bye)winners.push(gr.bye);
+  const losers=ms.map(loserOf);
+  const byes={...(g.byes||{})},up={},newMatches=[];
+  up['groups/'+key+'/state']='done';
+  for(const [k,lo,ps] of [[key+'w',gr.lo,winners],[key+'l',gr.lo+winners.length,losers]]){
+    if(!ps.length)continue;
+    if(ps.length===1){up['ranks/'+ps[0]]=lo;continue}
+    if(k.endsWith('l')&&!rankOn(g)){ps.forEach(u=>{up['ranks/'+u]=lo});continue}
+    const pg=pairGroup(g,k,lo,ps,byes);if(pg.bye)byes[pg.bye]=(byes[pg.bye]||0)+1;
+    up['groups/'+k]={lo,n:ps.length,players:ps,mids:pg.mids,bye:pg.bye||null,state:'play'};
+    newMatches.push(...pg.matches);
+  }
+  up.byes=byes;
+  for(const [mid,data] of newMatches)await C.db.ref('matches/'+mid).set(data);
+  await C.db.ref('game').update(up);
+}
+function readyGroups(g){return groupsOf(g).filter(gr=>gr.state==='play'&&(gr.mids||[]).every(id=>D.matches[id]&&D.matches[id].w!=null))}
 async function hostAdvance(){
   if(!C.isHost||advancing||!C.db)return;
-  const g=D.game;if(!g||g.status!=='running'||!g.rounds||!g.rounds.length||!D.matchesLoaded)return;
-  const r=g.rounds.length-1,rd=g.rounds[r];
-  const ms=rd.mids.map(id=>D.matches[id]);
-  if(ms.some(m=>!m||m.w==null))return;
-  const winners=ms.map(m=>m.w);if(rd.bye)winners.push(rd.bye);
-  advancing=true;
-  try{
-    if(winners.length===1)await C.db.ref('game').update({status:'done',champion:winners[0],endedAt:Date.now()});
-    else await createRound(r+1,winners,plain(g));
-  }catch(e){toast('Couldn’t draw the next round. Try “Draw next round”. · 다음 라운드 생성 실패')}
-  finally{advancing=false}
+  const g=D.game;if(!g||g.status!=='running'||!g.groups||!D.matchesLoaded)return;
+  const ready=readyGroups(g);
+  if(ready.length){
+    advancing=true;
+    try{const gr=ready[0];await splitGroup(plain(g),gr.key,gr,gr.mids.map(id=>D.matches[id]))}
+    catch(e){toast('Couldn’t draw the next matches. Try “Draw next matches”. · 다음 경기 생성 실패')}
+    finally{advancing=false}
+    return;
+  }
+  const ranks=g.ranks||{},n=totalPlayers(g);
+  if(n&&Object.keys(ranks).length>=n&&!groupsOf(g).some(gr=>gr.state==='play')){
+    const champ=Object.keys(ranks).find(u=>ranks[u]===1)||null;
+    try{await C.db.ref('game').update({status:'done',champion:champ,endedAt:Date.now()})}catch(e){}
+  }
 }
 async function hostStart(){
   const g=D.game,ids=D.players.map(p=>p.uid);
   if(!g||ids.length<2||advancing)return;
   advancing=true;
   try{
-    const fresh={...plain(g),status:'running',rounds:[],champion:null,startedAt:Date.now()};
+    const fresh={...plain(g),status:'running',groups:null,ranks:null,byes:null,champion:null,startedAt:Date.now()};
+    const byes={};const pg=pairGroup(fresh,'g',1,ids,byes);if(pg.bye)byes[pg.bye]=1;
+    for(const [mid,data] of pg.matches)await C.db.ref('matches/'+mid).set(data);
+    fresh.groups={g:{lo:1,n:ids.length,players:ids,mids:pg.mids,bye:pg.bye||null,state:'play'}};fresh.byes=byes;
     await C.db.ref('game').set(fresh);
-    await createRound(0,ids,fresh);
   }catch(e){toast('Couldn’t start the tournament. · 토너먼트를 시작하지 못했습니다.')}
   finally{advancing=false}
 }
@@ -608,7 +645,7 @@ async function joinLobby(){
   try{localStorage.setItem('pd-name',name)}catch(e){}
   try{await C.db.ref('players/'+C.uid).set({name,tid:D.game.tid,at:Date.now()})}catch(e){toast('Couldn’t join. Try again. · 참가하지 못했습니다.')}
 }
-async function leaveLobby(uid){try{await C.db.ref('players/'+uid).delete()}catch(e){toast('Couldn’t remove. · 삭제하지 못했습니다.')}}
+async function leaveLobby(uid){try{await C.db.ref('players/'+uid).remove()}catch(e){toast('Couldn’t remove. · 삭제하지 못했습니다.')}}
 
 /* ================= shared UI bits ================= */
 function twoStep(btn,label,fn){if(!btn)return;let armed=false,t;btn.addEventListener('click',()=>{if(armed){clearTimeout(t);armed=false;fn();return}armed=true;const old=btn.innerHTML;btn.innerHTML=label;btn.classList.add('warn');t=setTimeout(()=>{armed=false;btn.innerHTML=old;btn.classList.remove('warn')},3500)})}
@@ -629,7 +666,8 @@ function howCard(open){
     <li>Every correct answer makes your Pong paddle 20% longer, up to +60%.<span>맞힐 때마다 막대가 20%씩 길어집니다 (최대 +60%).</span></li>
     <li>Then play Pong. First to ${gWin()} wins. The ball speeds up on the 4th and 12th hit of a rally, and where it hits your paddle sets the angle. Paddles can’t reach the very top and bottom edges.<span>${gWin()}점 먼저 내면 승리. 랠리 4번째·12번째 타격에서 공이 빨라지고, 막대 맨 위·아래에는 닿지 않는 사각지대가 있습니다.</span></li>
     <li>Hold the ▲ ▼ buttons (or ↑ ↓ keys) to move your paddle.<span>▲ ▼ 버튼(또는 키보드 ↑ ↓)을 누르고 있으면 막대가 움직입니다.</span></li>
-    <li>Winners move on. With an odd number of players, one player gets a bye and watches a live match.<span>이긴 사람이 다음 라운드로. 인원이 홀수면 1명이 부전승으로 올라가고 다른 경기를 관람합니다.</span></li>
+    ${rankOn(D.game)?`<li>Ranking matches: winners play winners for the higher places and losers play losers for the lower places, until every player has a final place.<span>순위결정전: 이긴 사람끼리 윗순위를, 진 사람끼리 아랫순위를 겨뤄 모든 학생의 최종 순위가 정해집니다.</span></li>`:`<li>Winners move on. Lose once and you’re out.<span>이긴 사람이 다음 라운드로, 지면 탈락입니다.</span></li>`}
+    <li>With an odd number of players in a group, one player gets a bye and watches a live match.<span>인원이 홀수면 1명이 부전승으로 올라가고 다른 경기를 관람합니다.</span></li>
   </ol></details>`;
 }
 
@@ -678,8 +716,9 @@ function lobbyView(g){
     right=`<section class="panel"><h2>Teacher controls <span class="ko">교사 설정</span></h2>
       <p class="note">Share this link with students (without <b>?host</b>). Keep this page open: it draws each new round automatically. · 학생에게 아래 링크를 공유하고, 이 화면을 켜 두세요.</p>${linkBox()}
       <h2>Match settings <span class="ko">경기 설정</span></h2>${segBox('win','Points to win · 승리 점수',WIN_OPTS,gWin(),v=>v+'점')}${segBox('qtime','Time per question · 문제당 시간',QT_OPTS,gQt(),v=>v+'초')}
+      <label class="chk"><input type="checkbox" id="ranktoggle" ${rankOn(g)?'checked':''}><span><b>Ranking matches · 순위결정전</b><small>Winners play winners and losers play losers until every player has a final place. Off: lose once and you’re out. · 이긴 사람끼리, 진 사람끼리 계속 겨뤄 모든 학생의 순위를 정합니다. 끄면 한 번 지면 탈락.</small></span></label>
       <h2>Question types <span class="ko">문제 유형</span></h2>${typesBox(g)}
-      <div class="plan">${n>=2?`${pl.seq.join(' → ')} · ${pl.rounds} round${pl.rounds>1?'s':''}${pl.byes?` · ${pl.byes} bye${pl.byes>1?'s':''} (부전승)`:''}`:'Need at least 2 players · 최소 2명'}</div>
+      <div class="plan">${n>=2?`${n} players · ${pl.rounds} round${pl.rounds>1?'s':''} · ${rankOn(g)?`up to ${pl.rounds} matches each, places 1–${n} decided · 1인당 최대 ${pl.rounds}경기, 1–${n}위까지 결정`:`single elimination · 한 번 지면 탈락`}`:'Need at least 2 players · 최소 2명'}</div>
       <button class="btn primary big" id="start" ${n<2?'disabled':''}>Start tournament · 토너먼트 시작</button>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm ghost" id="reset">Clear lobby · 대기실 초기화</button><button class="btn sm ghost" id="release">Release host · 진행자 해제</button></div></section>`;
   }else{
@@ -690,35 +729,58 @@ function lobbyView(g){
 function padsDemo(){
   return `<div class="pads-row">${[0,1,2,3].map(c=>`<div class="pp"><div class="pp-field"><div class="pp-net"></div><div class="pp-pad l" style="--h:${lenPct(c)}%"></div></div><div class="pp-lab"><b>${c}/3</b><span class="pct">${padPct(c)}%</span></div></div>`).join('')}</div>`;
 }
+function placeOf(u){const r=D.game&&D.game.ranks&&D.game.ranks[u];return Number.isFinite(r)?r:null}
+function tiedAt(r){return Object.values((D.game&&D.game.ranks)||{}).filter(x=>x===r).length>1}
+function placeText(r){return `${tiedAt(r)?'공동 ':''}${r}위`}
 function tournamentView(g){
-  const rounds=g.rounds||[];let html='';
-  if(g.status==='done'&&g.champion){
-    const nm=nameOf(g.champion);
-    html+=`<section class="status gold champ"><div class="tile"><span class="tz">1</span><span class="tsym" data-uid-initial="${esc(g.champion)}">${esc([...nm][0]||'?')}</span><span class="tname">${nameSpan(g.champion)}</span></div><div><p class="eyebrow">Champion · 우승</p><h2>${nameSpan(g.champion)}</h2><p>${g.champion===C.uid?'You won the whole tournament! · 최종 우승을 축하합니다!':'Tournament complete. · 대회가 끝났습니다.'}</p></div></section>`;
-  }
+  let html='';
+  if(g.status==='done')html+=podium(g);
   html+=myStatusCard(g);
   const live=liveMatches();
   if(live.length)html+=`<section class="panel"><div class="phead"><h2>Live now <span class="ko">진행 중인 경기</span></h2><span class="count">${live.length} match${live.length>1?'es':''}</span></div><div class="live">${live.map(liveCard).join('')}</div></section>`;
-  if(g.status==='running'&&!rounds.length)html+=`<section class="panel"><p class="muted">Drawing the first round… · 대진 추첨 중</p></section>`;
-  if(rounds.length)html+=`<section class="panel"><h2>Bracket <span class="ko">대진표</span></h2><div class="bracket-scroll"><div class="bracket">${rounds.map(roundCol).join('')}</div></div></section>`;
+  if(g.status==='running'&&!g.groups)html+=`<section class="panel"><p class="muted">Drawing the first round… · 대진 추첨 중</p></section>`;
+  if(g.groups)html+=`<div class="grid2 sr">${standingsPanel(g)}${roundsPanel(g)}</div>`;
   if(C.isHost)html+=hostRunPanel(g);
   return html;
 }
+function podium(g){
+  const ranks=g.ranks||{};const top=Object.keys(ranks).filter(u=>ranks[u]<=3).sort((x,y)=>ranks[x]-ranks[y]);
+  const first=top.filter(u=>ranks[u]===1);
+  const nm=first[0]?nameOf(first[0]):'?';
+  const others=top.filter(u=>ranks[u]>1).map(u=>`<p><b>${placeText(ranks[u])}</b> · ${nameSpan(u)}</p>`).join('');
+  const mine=placeOf(C.uid);
+  return `<section class="status gold champ"><div class="tile"><span class="tz">1</span><span class="tsym" data-uid-initial="${esc(first[0]||'')}">${esc([...nm][0]||'?')}</span><span class="tname">${first.map(nameSpan).join(', ')}</span></div><div><p class="eyebrow">Final standings · 최종 순위</p><h2>${first.map(nameSpan).join(', ')}</h2>${others}${mine!=null&&!C.isHost?`<p style="margin-top:8px">Your place · 나의 순위: <b>${placeText(mine)}</b> / ${totalPlayers(g)}명</p>`:''}</div></section>`;
+}
+function standingsPanel(g){
+  const ps=(g.groups&&g.groups.g&&g.groups.g.players)||[];
+  const open={};for(const gr of groupsOf(g))if(gr.state==='play')for(const u of gr.players||[])if(!open[u]||gr.key.length>open[u].key.length)open[u]=gr;
+  const rows=ps.map(u=>{const r=placeOf(u);const gr=open[u];const lo=r!=null?r:gr?gr.lo:999;return{u,r,gr,lo,hi:gr?gr.lo+gr.n-1:lo}}).sort((x,y)=>(x.lo-y.lo)||(x.hi-y.hi));
+  const body=rows.map(x=>`<div class="mc st"><div class="r${x.u===C.uid?' mine':''}"><span>${nameSpan(x.u)}</span><span class="sc">${x.r!=null?`<b>${placeText(x.r)}</b>`:x.gr?`${x.gr.lo}–${x.gr.lo+x.gr.n-1}위 경쟁`:'…'}</span></div></div>`).join('');
+  return `<section class="panel"><h2>Standings <span class="ko">순위표</span></h2><div class="standings">${body}</div></section>`;
+}
+function roundsPanel(g){
+  const byR={};for(const gr of groupsOf(g))(byR[gr.key.length-1]=byR[gr.key.length-1]||[]).push(gr);
+  const cols=Object.keys(byR).map(Number).sort((a,b)=>a-b).map(r=>{
+    const grs=byR[r].sort((a,b)=>a.lo-b.lo);
+    const body=grs.map(gr=>{const [en,ko]=placeLabel(gr.lo,gr.n);return `<p class="glab">${ko}</p>${(gr.mids||[]).map(id=>matchCard(D.matches[id])).join('')}${gr.bye?`<div class="mc bye"><div class="r"><span>${nameSpan(gr.bye)}</span><span class="pill">Bye</span></div></div>`:''}`}).join('');
+    return `<div class="round"><h3>Round ${r+1}<span>${r+1}라운드</span></h3><div class="round-body rb-top">${body}</div></div>`;
+  }).join('');
+  return `<section class="panel"><h2>Matches <span class="ko">라운드별 경기</span></h2><div class="bracket-scroll"><div class="bracket">${cols}</div></div></section>`;
+}
 function myStatusCard(g){
-  if(!C.uid||!g.rounds||!g.rounds.length)return '';
-  const cur=curRound(),all=Object.values(D.matches);
-  const mine=all.filter(m=>m.a===C.uid||m.b===C.uid);
-  const inT=mine.length||(g.rounds||[]).some(r=>r.bye===C.uid);
-  if(g.status==='done')return '';
+  if(!C.uid||!g.groups)return '';
+  const root=g.groups.g;const inT=root&&(root.players||[]).includes(C.uid);
   if(!inT)return C.isHost?'':`<section class="status"><div><h2>You’re watching · 관람 중</h2><p>This tournament started before you joined. Pick a live match to watch. · 진행 중인 경기를 골라 관람하세요.</p></div></section>`;
-  const lost=mine.find(m=>m.w&&m.w!==C.uid);
-  if(lost){const rd=g.rounds[lost.r];const lab=rd?roundLabel(rd):['',''];const opp=lost.a===C.uid?lost.b:lost.a;
-    return `<section class="status"><div><h2>Out in the ${lab[0]} · ${lab[1]} 탈락</h2><p>Lost to ${nameSpan(opp)}. Keep watching the live matches! · 남은 경기를 관람하세요.</p></div></section>`}
-  if(cur&&cur.bye===C.uid){const lv=liveMatches();
-    return `<section class="status go"><div><h2>Bye this round · 이번 라운드 부전승</h2><p>You go straight to the next round. Watch a live match while you wait. · 다음 라운드로 자동 진출! 기다리는 동안 경기를 관람하세요.</p></div>${lv.length?`<div class="acts"><button class="btn primary" data-watch="${esc(lv[0].id)}">Watch a match · 관람하기</button></div>`:''}</section>`}
+  if(g.status==='done')return '';
+  const lv=liveMatches(),watchBtn=lv.length?`<div class="acts"><button class="btn primary" data-watch="${esc(lv[0].id)}">Watch a match · 관람하기</button></div>`:'';
   const act=myActiveMatch();
-  if(act)return `<section class="status go"><div><h2>Your match is ready · 경기 준비 완료</h2></div><div class="acts"><button class="btn primary big" data-play="${esc(act.id)}">Play · 경기하기</button></div></section>`;
-  return `<section class="status"><div><h2>You won! · 승리!</h2><p>The next round starts when every match in this round is finished. Watch the others meanwhile. · 이번 라운드가 모두 끝나면 다음 경기가 시작됩니다.</p></div></section>`;
+  if(act)return `<section class="status go"><div><h2>Your match is ready · 경기 준비 완료</h2><p>${matchLabel(act)[1]}</p></div><div class="acts"><button class="btn primary big" data-play="${esc(act.id)}">Play · 경기하기</button></div></section>`;
+  const r=placeOf(C.uid);
+  if(r!=null)return `<section class="status gold"><div><h2>Your final place: ${placeText(r)} · 최종 순위</h2><p>${r===1?'You won the tournament! · 우승!':'Thanks for playing! Keep watching the remaining matches. · 수고했어요! 남은 경기를 관람하세요.'} (${totalPlayers(g)}명 중)</p></div>${watchBtn}</section>`;
+  const gr=myOpenGroup();
+  if(gr&&gr.bye===C.uid)return `<section class="status go"><div><h2>Bye this round · 이번 라운드 부전승</h2><p>You move on in the race for places ${gr.lo}–${gr.lo+gr.n-1}. Watch a live match while you wait. · ${gr.lo}–${gr.lo+gr.n-1}위 결정전에서 부전승! 기다리는 동안 경기를 관람하세요.</p></div>${watchBtn}</section>`;
+  if(gr)return `<section class="status"><div><h2>Next match coming · 다음 경기 준비 중</h2><p>You’re playing for places ${gr.lo}–${gr.lo+gr.n-1}. Your next match starts when the other matches in this group finish. · ${gr.lo}–${gr.lo+gr.n-1}위를 겨루는 중입니다. 같은 조 경기가 끝나면 다음 경기가 시작됩니다.</p></div>${watchBtn}</section>`;
+  return `<section class="status"><div><h2>Next match coming · 다음 경기 준비 중</h2><p>Drawing your next match… · 다음 대진을 만드는 중</p></div>${watchBtn}</section>`;
 }
 function liveCard(m){
   const ph=phaseOf(m);
@@ -726,13 +788,7 @@ function liveCard(m){
   const pill=ph==='quiz'?`<span class="pill q dot">Questions · 문제</span>`:`<span class="pill p dot">Pong ${(m.score||[0,0])[0]}–${(m.score||[0,0])[1]}</span>`;
   const sub=ph==='quiz'?`${(qa&&qa.ans||[]).length}/3 · ${(qb&&qb.ans||[]).length}/3 answered`:`First to ${m.win||11} · ${m.win||11}점 선승`;
   const host=C.isHost?`<div class="award"><button class="btn sm" data-award="${esc(m.id)}" data-side="0">${nameSpan(m.a)} wins</button><button class="btn sm" data-award="${esc(m.id)}" data-side="1">${nameSpan(m.b)} wins</button></div>`:'';
-  return `<div class="lm"><div class="row">${pill}<span class="sub">${sub}</span></div><div class="vsl"><span style="color:var(--red)">${nameSpan(m.a)}</span><em>vs</em><span style="color:var(--blue)">${nameSpan(m.b)}</span></div><div class="row"><button class="btn sm primary" data-watch="${esc(m.id)}">Watch · 관람</button></div>${host}</div>`;
-}
-function roundCol(rd){
-  const [en,ko]=roundLabel(rd);
-  const cards=rd.mids.map(id=>matchCard(D.matches[id])).join('');
-  const bye=rd.bye?`<div class="mc bye"><div class="r"><span>${nameSpan(rd.bye)}</span><span class="pill">Bye</span></div></div>`:'';
-  return `<div class="round"><h3>${en}<span>${ko} · ${rd.n}명</span></h3><div class="round-body">${cards}${bye}</div></div>`;
+  return `<div class="lm"><div class="row">${pill}<span class="pill">${matchLabel(m)[1]}</span><span class="sub">${sub}</span></div><div class="vsl"><span style="color:var(--red)">${nameSpan(m.a)}</span><em>vs</em><span style="color:var(--blue)">${nameSpan(m.b)}</span></div><div class="row"><button class="btn sm primary" data-watch="${esc(m.id)}">Watch · 관람</button></div>${host}</div>`;
 }
 function matchCard(m){
   if(!m)return `<div class="mc"><div class="r"><span class="muted">…</span></div></div>`;
@@ -744,11 +800,10 @@ function matchCard(m){
   return done?`<div class="mc">${inner}</div>`:`<button class="mc" data-watch="${esc(m.id)}" aria-label="Watch this match">${inner}</button>`;
 }
 function hostRunPanel(g){
-  const cur=curRound();
-  const stuck=g.status==='running'&&cur&&cur.mids.every(id=>D.matches[id]&&D.matches[id].w!=null);
+  const stuck=g.status==='running'&&readyGroups(g).length>0;
   return `<section class="panel"><h2>Teacher controls <span class="ko">교사 설정</span></h2>
-    <p class="note">Keep this page open: when every match in a round ends, it draws the next round. If a student drops out, use the “wins” buttons on a live match to award it. · 학생이 접속하지 못하면 “wins” 버튼으로 승자를 지정하세요.</p>
-    ${linkBox()}<div class="acts" style="display:flex;gap:8px;flex-wrap:wrap">${stuck?`<button class="btn primary" id="advance">Draw next round · 다음 라운드</button>`:''}<button class="btn" id="newt">New tournament · 새 대회</button><button class="btn ghost" id="release">Release host · 진행자 해제</button></div></section>`;
+    <p class="note">Keep this page open: when every match in a group ends, it draws that group’s next matches. If a student drops out, use the “wins” buttons on a live match to award it. · 이 화면을 켜 두면 다음 경기가 자동으로 만들어집니다. 학생이 접속하지 못하면 “wins” 버튼으로 승자를 지정하세요.</p>
+    ${linkBox()}<div class="acts" style="display:flex;gap:8px;flex-wrap:wrap">${stuck?`<button class="btn primary" id="advance">Draw next matches · 다음 경기 만들기</button>`:''}<button class="btn" id="newt">New tournament · 새 대회</button><button class="btn ghost" id="release">Release host · 진행자 해제</button></div></section>`;
 }
 function wireHome(){
   const on=(sel,fn)=>{const el=$(sel);if(el)el.addEventListener('click',fn)};
@@ -763,6 +818,7 @@ function wireHome(){
   twoStep($('#newt'),'Click again to reset · 한 번 더 누르면 새 대회',hostNewLobby);
   twoStep($('#reset'),'Click again to clear · 한 번 더 누르면 초기화',hostNewLobby);
   document.querySelectorAll('input[name=win],input[name=qtime]').forEach(r=>r.addEventListener('change',()=>{if(r.checked)writeDoc('game',{[r.name]:+r.value},'update')}));
+  const rkt=$('#ranktoggle');if(rkt)rkt.addEventListener('change',()=>writeDoc('game',{rank:rkt.checked},'update'));
   document.querySelectorAll('[data-kick]').forEach(b=>b.addEventListener('click',()=>leaveLobby(b.dataset.kick)));
   document.querySelectorAll('.types input').forEach(c=>c.addEventListener('change',()=>{const t={...((D.game&&D.game.types)||ALLTYPES),[c.dataset.k]:c.checked};if(!Object.values(t).some(Boolean)){c.checked=true;toast('Keep at least one question type. · 문제 유형을 하나 이상 선택하세요.');return}writeDoc('game',{types:t},'update')}));
   document.querySelectorAll('[data-watch]').forEach(b=>b.addEventListener('click',()=>openMatch(b.dataset.watch,true)));
@@ -815,7 +871,7 @@ function refreshScreen(){
   paintNames();
 }
 function mhead(m,compact){
-  const rd=((D.game&&D.game.rounds)||[])[m.r];const lab=rd?roundLabel(rd):['Match','경기'];
+  const lab=matchLabel(m);
   const w=MV.side<0;
   if(compact)return `<header class="mhead"><p class="eyebrow">${lab[0]} · ${lab[1]}${w?' · Watching · 관람 중':''}</p>${w?`<button class="btn sm" id="mback">← Bracket · 대진표</button>`:''}</header>`;
   return `<header class="mhead"><div><p class="eyebrow">${lab[0]} · ${lab[1]}${w?' · Watching · 관람 중':''}</p><h2 class="vs"><span class="l">${nameSpan(m.a)}${MV.side===0?' <small>you</small>':''}</span><em>vs</em><span class="r">${nameSpan(m.b)}${MV.side===1?' <small>you</small>':''}</span></h2></div>${w?`<button class="btn sm" id="mback">← Bracket · 대진표</button>`:''}</header>`;
@@ -949,7 +1005,13 @@ function buildResult(){
   const m=D.matches[MV.mid];MV.resultAt=Date.now();
   const wSide=m.w===m.a?0:1,sc=m.score||[0,0];
   let msg='';
-  if(MV.side>=0)msg=MV.side===wSide?'You win and move on! · 승리! 다음 라운드로 진출합니다.':'Good game. You can watch the remaining matches. · 수고했어요! 남은 경기를 관람할 수 있어요.';
+  if(MV.side>=0){
+    const won=MV.side===wSide,hi=m.lo+m.n-1;
+    if(m.n===2)msg=won?`You finish in place ${m.lo}! · 최종 ${m.lo}위!`:`You finish in place ${hi}. Good game! · 최종 ${hi}위, 수고했어요!`;
+    else if(won)msg=`You win! Next you play for places ${m.lo}–${m.lo+Math.ceil(m.n/2)-1}. · 승리! 다음엔 ${m.lo}–${m.lo+Math.ceil(m.n/2)-1}위를 겨룹니다.`;
+    else if(rankOn(D.game))msg=`Good game. Next you play for places ${m.lo+Math.ceil(m.n/2)}–${hi}. · 수고했어요! 다음엔 ${m.lo+Math.ceil(m.n/2)}–${hi}위를 겨룹니다.`;
+    else msg='Good game. You can watch the remaining matches. · 수고했어요! 남은 경기를 관람할 수 있어요.';
+  }
   if(MV.side===wSide)sfx.good();
   app.innerHTML=`<div class="mwrap">${mhead(m)}<section class="panel result"><p class="eyebrow">${m.forfeit?'Awarded by teacher · 선생님 판정':'Final · 최종'}</p><h2>${nameSpan(m.w)} wins</h2>${m.forfeit?'':`<div class="fscore"><span class="l">${sc[0]}</span> : <span class="r">${sc[1]}</span></div>`}<p>${msg}</p><div class="acts"><button class="btn primary big" id="rhome">Back to bracket · 대진표로</button></div></section>${switcherHTML()}</div>`;
   $('#rhome').addEventListener('click',goHome);wireBack();wireSwitcher();
