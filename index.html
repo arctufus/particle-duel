@@ -437,7 +437,8 @@ function genQuestion(types,used){
 function quizFor(m){return withSeed(hashStr('q:'+m.id),()=>{const used=new Set();return [0,1,2].map(()=>genQuestion(m.types||ALLTYPES,used))})}
 
 /* ================= constants ================= */
-const QN=3,BASE=40,BONUS=8,PFIELD=300;
+const QN=3,BASE=32,BONUS_PCT=40,BONUS=BASE*BONUS_PCT/100,PFIELD=300;
+const BTXT='+'+BONUS_PCT+'%',BMAX='+'+BONUS_PCT*QN+'%';
 const WIN_OPTS=[5,7,11,15,21],QT_OPTS=[10,15,20,30,45,60];
 const gWin=()=>(D.game&&D.game.win)||11,gQt=()=>(D.game&&D.game.qtime)||20;
 const padPct=c=>Math.round((BASE+BONUS*c)/BASE*100);
@@ -663,7 +664,7 @@ function howCard(open){
   return `<details class="panel how"${open?' open':''}><summary>How to play · 진행 방법</summary><ol>
     <li>Open the class link, type your name and tap <b>Join</b>. No account needed.<span>링크를 열고 이름을 입력한 뒤 참가하기를 누릅니다. 가입은 필요 없습니다.</span></li>
     <li>Each match starts with the same 3 questions for both players, ${gQt()} seconds each.<span>두 사람이 같은 문제 3개를 풉니다. 문제당 ${gQt()}초.</span></li>
-    <li>Every correct answer makes your Pong paddle 20% longer, up to +60%.<span>맞힐 때마다 막대가 20%씩 길어집니다 (최대 +60%).</span></li>
+    <li>Every correct answer makes your Pong paddle ${BONUS_PCT}% longer, up to ${BMAX}.<span>맞힐 때마다 막대가 ${BONUS_PCT}%씩 길어집니다 (최대 ${BMAX}).</span></li>
     <li>Then play Pong. First to ${gWin()} wins. The ball speeds up on the 4th and 12th hit of a rally, and where it hits your paddle sets the angle. Paddles can’t reach the very top and bottom edges.<span>${gWin()}점 먼저 내면 승리. 랠리 4번째·12번째 타격에서 공이 빨라지고, 막대 맨 위·아래에는 닿지 않는 사각지대가 있습니다.</span></li>
     <li>Hold the ▲ ▼ buttons (or ↑ ↓ keys) to move your paddle.<span>▲ ▼ 버튼(또는 키보드 ↑ ↓)을 누르고 있으면 막대가 움직입니다.</span></li>
     ${rankOn(D.game)?`<li>Ranking matches: winners play winners for the higher places and losers play losers for the lower places, until every player has a final place.<span>순위결정전: 이긴 사람끼리 윗순위를, 진 사람끼리 아랫순위를 겨뤄 모든 학생의 최종 순위가 정해집니다.</span></li>`:`<li>Winners move on. Lose once and you’re out.<span>이긴 사람이 다음 라운드로, 지면 탈락입니다.</span></li>`}
@@ -722,7 +723,7 @@ function lobbyView(g){
       <button class="btn primary big" id="start" ${n<2?'disabled':''}>Start tournament · 토너먼트 시작</button>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm ghost" id="reset">Clear lobby · 대기실 초기화</button><button class="btn sm ghost" id="release">Release host · 진행자 해제</button></div></section>`;
   }else{
-    right=`<section class="panel"><h2>Your paddle <span class="ko">나의 막대</span></h2><p class="note">Answer within ${gQt()} seconds: each correct answer adds 20% to your Pong paddle. First to ${gWin()} points wins. · 문제당 ${gQt()}초, 정답 하나마다 막대 +20%, ${gWin()}점 선승.</p>${padsDemo()}</section>`;
+    right=`<section class="panel"><h2>Your paddle <span class="ko">나의 막대</span></h2><p class="note">Answer within ${gQt()} seconds: each correct answer adds ${BONUS_PCT}% to your Pong paddle. First to ${gWin()} points wins. · 문제당 ${gQt()}초, 정답 하나마다 막대 ${BTXT}, ${gWin()}점 선승.</p>${padsDemo()}</section>`;
   }
   return `<div class="grid2">${left}${right}</div>`;
 }
@@ -889,8 +890,8 @@ function buildLoading(){app.innerHTML=`<div class="mwrap"><section class="panel"
 
 /* ---------- paddle panel ---------- */
 function padsHTML(m,title){
-  const pp=s=>{const id=s?m.b:m.a;return `<div class="pp ${s?'R':'L'}" id="pp${s}" data-c="-1"><div class="pp-field"><div class="pp-net"></div><div class="pp-pad ${s?'r':'l'}" style="--h:${lenPct(0)}%"></div><span class="pp-pop">+20%</span></div><div class="pp-lab"><b>${nameSpan(id)}</b><span class="pct">100%</span></div><div class="dots">${'<i></i>'.repeat(QN)}</div></div>`};
-  return `<aside class="pads"><h3>${title||'Paddle length · 막대 길이'}</h3><div class="pads-row">${pp(0)}${pp(1)}</div><p class="note">Each correct answer: +20% (max +60%). · 정답 1개당 +20%</p></aside>`;
+  const pp=s=>{const id=s?m.b:m.a;return `<div class="pp ${s?'R':'L'}" id="pp${s}" data-c="-1"><div class="pp-field"><div class="pp-net"></div><div class="pp-pad ${s?'r':'l'}" style="--h:${lenPct(0)}%"></div><span class="pp-pop">${BTXT}</span></div><div class="pp-lab"><b>${nameSpan(id)}</b><span class="pct">100%</span></div><div class="dots">${'<i></i>'.repeat(QN)}</div></div>`};
+  return `<aside class="pads"><h3>${title||'Paddle length · 막대 길이'}</h3><div class="pads-row">${pp(0)}${pp(1)}</div><p class="note">Each correct answer: ${BTXT} (max ${BMAX}). · 정답 1개당 ${BTXT}</p></aside>`;
 }
 function ansOf(m,s){if(MV&&MV.side===s&&MV.q)return MV.q.ans;const d=D.quiz[qid(m.id,s?m.b:m.a)];return (d&&Array.isArray(d.ans))?d.ans:[]}
 const correctOf=(m,s)=>ansOf(m,s).filter(x=>x===1).length;
@@ -946,7 +947,7 @@ function answerQ(i){
   updatePads(m);
   const last=q.ans.length>=QN;
   const fb=$('#fb');fb.hidden=false;
-  fb.innerHTML=`<p class="v ${ok?'ok':'no'}">${ok?'Correct! Paddle +20% · 정답! 막대 +20%':i<0?'Time’s up · 시간 초과':'Not quite · 오답'}</p><p class="ex">${item.explain}</p><button class="btn primary" id="nextq">${last?'Done · 완료':'Next question · 다음 문제'} <kbd>Enter</kbd></button>`;
+  fb.innerHTML=`<p class="v ${ok?'ok':'no'}">${ok?`Correct! Paddle ${BTXT} · 정답! 막대 ${BTXT}`:i<0?'Time’s up · 시간 초과':'Not quite · 오답'}</p><p class="ex">${item.explain}</p><button class="btn primary" id="nextq">${last?'Done · 완료':'Next question · 다음 문제'} <kbd>Enter</kbd></button>`;
   const go=()=>{clearTimeout(q.adv);if(!MV||MV.q!==q)return;if(last){q.state='finished';matchUpdate()}else{q.idx++;showQ()}};
   $('#nextq').addEventListener('click',go);q.next=go;
   q.adv=setTimeout(go,last?3200:3600);
@@ -978,7 +979,7 @@ function buildWatchQuiz(){
 const ARROW_UP='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 22 18H2z"/></svg>',ARROW_DN='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20 2 6h20z"/></svg>';
 function buildPong(){
   const m=D.matches[MV.mid],side=MV.side;
-  const bonus=s=>{const c=correctOf(m,s);return c?` <span class="you">+${c*20}%</span>`:''};
+  const bonus=s=>{const c=correctOf(m,s);return c?` <span class="you">+${c*BONUS_PCT}%</span>`:''};
   const ctrl=side>=0?`<div class="ctrl"><button class="arrow" id="bup" aria-label="Move paddle up">${ARROW_UP}</button><button class="arrow" id="bdn" aria-label="Move paddle down">${ARROW_DN}</button></div>`:'';
   app.innerHTML=`<div class="mwrap">${mhead(m,true)}
     <div class="pbar"><div class="pn L">${nameSpan(m.a)}${side===0?' <span class="you">you</span>':''}${bonus(0)}</div><div class="pmid"><span class="pill">First to ${m.win||11} · ${m.win||11}점</span><button class="btn sm ghost" id="snd">${MUTED?'Sound off':'Sound on'}</button></div><div class="pn R">${bonus(1)}${side===1?' <span class="you">you</span>':''} ${nameSpan(m.b)}</div></div>
@@ -1023,15 +1024,16 @@ function buildResult(){
    between events; only serves, hits, points, paddle direction changes and a 1 s heartbeat are sent. */
 function createPong(o){
   const {a,b,side,room,hts,score0,first,cv,msg,onScore,onOver}=o;
-  const W=800,H=600,BS=12,PW=12,AX=36,BX=W-AX-PW,GAP=26,PSPD=540,R=H-BS,WIN=o.win||11;
-  const SEG=[-1,-.67,-.33,0,0,.33,.67,1],TIERS=[300,400,520];
+  const W=800,H=600,BS=12,PW=10,AX=36,BX=W-AX-PW,GAP=26,PSPD=620,R=H-BS,WIN=o.win||11;
+  const SEG=[-1,-.67,-.33,0,0,.33,.67,1],TIERS=[370,490,630];
   const ctx=cv.getContext('2d');
   const FONT={0:['111','101','101','101','111'],1:['001','001','001','001','001'],2:['111','001','111','100','111'],3:['111','001','111','001','111'],4:['101','101','111','001','001'],5:['111','100','111','001','111'],6:['111','100','111','101','111'],7:['111','001','001','001','001'],8:['111','101','111','101','111'],9:['111','101','111','001','111']};
   const now=()=>Date.now()+(C.off||0);
   let G=null,myY=H/2,myD=0,up=false,dn=false,last=performance.now(),raf=0,stopped=false,both=0,lastOg=null,overDone=false,lastMsg=null,sentD=null,lastPub=0;
   let base=null,err={x:0,y:0},prevShown=null,prevSeg=null;
   const py=[H/2,H/2];
-  const tier=h=>TIERS[h>=12?2:h>=4?1:0];
+  /* Original Pong steps the speed up on the 4th and 12th hit; after that every hit adds 3% (capped) so a rally can't last forever. */
+  const tier=h=>h<4?TIERS[0]:h<12?TIERS[1]:Math.min(900,TIERS[2]*Math.pow(1.03,h-12));
   const cy=(y,hh)=>Math.max(GAP+hh/2,Math.min(H-GAP-hh/2,y));
   const okG=g=>!!g&&typeof g==='object'&&['e','x','y','t'].every(k=>Number.isFinite(g[k]))&&Array.isArray(g.s)&&(g.o===0||g.o===1);
   const copy=g=>({...g,s:[g.s[0]|0,g.s[1]|0]});
@@ -1042,7 +1044,10 @@ function createPong(o){
 
   /* ---- owner physics ---- */
   function serve(T0){const sp=TIERS[0];G.ph='play';G.t=T0;G.x=W/2-BS/2;G.y=H*(.2+Math.random()*.6);G.vx=(G.o===0?-1:1)*sp;G.vy=[-.67,-.33,.33,.67][Math.floor(Math.random()*4)]*sp*.9;G.h=0;G.m=0;G.e++;publish()}
-  function hit(nx,dir){const hh=hts[side];const rel=(G.y+BS/2-(myY-hh/2))/hh;const seg=Math.max(0,Math.min(7,Math.floor(rel*8)));G.h++;const sp=tier(G.h);G.x=nx;G.vx=dir*sp;G.vy=SEG[seg]*sp*.9;G.e++;G.o=1-side;G.m=0;sfx.paddle();publish()}
+  function hit(nx,dir){const hh=hts[side];const rel=(G.y+BS/2-(myY-hh/2))/hh;const seg=Math.max(0,Math.min(7,Math.floor(rel*8)));G.h++;const sp=tier(G.h);
+    /* a small random twist on every return breaks repeating corner-to-corner loops when nobody moves */
+    let f=SEG[seg]+(Math.random()*2-1)*.15;if(Math.abs(f)<.07)f=(f<0||(f===0&&Math.random()<.5))?-.07:.07;f=Math.max(-1.1,Math.min(1.1,f));
+    G.x=nx;G.vx=dir*sp;G.vy=f*sp*.9;G.e++;G.o=1-side;G.m=0;sfx.paddle();publish()}
   function point(to){G.s=[G.s[0],G.s[1]];G.s[to]++;G.e++;G.h=0;G.m=0;G.vx=0;G.vy=0;G.x=W/2-BS/2;G.y=H/2-BS/2;sfx.point();
     if(G.s[to]>=WIN){G.ph='over';G.w=to}else{G.ph='wait';G.end=G.t+1500;G.o=side}publish();onScore(G.s.slice())}
   function step(T){
