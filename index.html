@@ -188,8 +188,8 @@ details.how[open] summary{margin-bottom:12px}
 .tbar.low i{background:var(--red)}
 .prompt{font-size:clamp(22px,2.6vw,32px);font-weight:800;text-align:center}
 .prompt-ko{margin-top:-6px;text-align:center;font-size:clamp(15px,1.6vw,20px);color:var(--muted);font-weight:500}
-.stage{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;min-height:150px}
-.big{font-size:clamp(52px,8vw,104px);line-height:1}
+.stage{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;min-height:110px}
+.big{font-size:clamp(44px,6.5vw,84px);line-height:1}
 .big .fx{font-weight:800}
 .chips{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
 .chip{background:var(--surface2);border:1px solid var(--line);border-radius:14px;padding:10px 18px;display:flex;flex-direction:column;align-items:center;min-width:110px}
@@ -206,7 +206,7 @@ details.how[open] summary{margin-bottom:12px}
 .legend i{width:13px;height:13px;border-radius:50%;display:inline-block;border:1px solid var(--ballline)}
 .qopts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 @media (max-width:560px){.qopts{grid-template-columns:minmax(0,1fr)}}
-.qopt{display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 14px;border-radius:14px;border:2px solid var(--line);background:var(--surface2);font-size:clamp(20px,2.2vw,28px);text-align:left;min-width:0}
+.qopt{display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 14px;border-radius:14px;border:2px solid var(--line);background:var(--surface2);font-size:clamp(17px,1.9vw,23px);text-align:left;min-width:0}
 .qopt:hover:not(:disabled){border-color:var(--muted)}
 .qopt:disabled{cursor:default;opacity:1}
 .qopt .k{flex:none;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font-family:var(--mono);font-size:15px;font-weight:600;background:var(--ink);color:var(--bg)}
@@ -331,110 +331,186 @@ const $=s=>document.querySelector(s);
 const app=document.getElementById('app');
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-/* ================= chemistry data ================= */
-const ZN={H:1,He:2,Li:3,Be:4,B:5,C:6,N:7,O:8,F:9,Ne:10,Na:11,Mg:12,Al:13,Si:14,P:15,S:16,Cl:17,Ar:18,K:19,Ca:20,Fe:26,Cu:29};
-const SYM={};for(const k in ZN)SYM[ZN[k]]=k;
-const EN={H:'hydrogen',He:'helium',Li:'lithium',Be:'beryllium',B:'boron',C:'carbon',N:'nitrogen',O:'oxygen',F:'fluorine',Ne:'neon',Na:'sodium',Mg:'magnesium',Al:'aluminum',Si:'silicon',P:'phosphorus',S:'sulfur',Cl:'chlorine',Ar:'argon',K:'potassium',Ca:'calcium',Fe:'iron',Cu:'copper'};
-const KO={H:'수소',He:'헬륨',Li:'리튬',Be:'베릴륨',B:'붕소',C:'탄소',N:'질소',O:'산소',F:'플루오린',Ne:'네온',Na:'나트륨',Mg:'마그네슘',Al:'알루미늄',Si:'규소',P:'인',S:'황',Cl:'염소',Ar:'아르곤',K:'칼륨',Ca:'칼슘',Fe:'철',Cu:'구리'};
-const ATOMS=['H','He','C','N','O','Ne','Na','Mg','Al','S','Cl','Ar','K','Ca','Fe','Cu'].map(f=>({f,c:0,kind:'atom',en:EN[f]+' atom',ko:KO[f]+' 원자'}));
-const MOLS=[['H2','hydrogen','수소'],['O2','oxygen','산소'],['N2','nitrogen','질소'],['Cl2','chlorine','염소'],['H2O','water','물'],['CO2','carbon dioxide','이산화 탄소'],['NH3','ammonia','암모니아'],['CH4','methane','메테인'],['O3','ozone','오존'],['H2O2','hydrogen peroxide','과산화 수소'],['HCl','hydrogen chloride','염화 수소'],['CO','carbon monoxide','일산화 탄소'],['SO2','sulfur dioxide','이산화 황'],['C6H12O6','glucose','포도당']].map(([f,en,ko])=>({f,c:0,kind:'molecule',en,ko}));
-const IONS=[['Li',1,'lithium ion','리튬 이온'],['Na',1,'sodium ion','나트륨 이온'],['K',1,'potassium ion','칼륨 이온'],['Mg',2,'magnesium ion','마그네슘 이온'],['Ca',2,'calcium ion','칼슘 이온'],['Al',3,'aluminum ion','알루미늄 이온'],['F',-1,'fluoride ion','플루오린화 이온'],['Cl',-1,'chloride ion','염화 이온'],['O',-2,'oxide ion','산화 이온'],['S',-2,'sulfide ion','황화 이온'],['Fe',3,'iron(III) ion','철(Ⅲ) 이온'],['Cu',2,'copper(II) ion','구리(Ⅱ) 이온'],['NH4',1,'ammonium ion','암모늄 이온'],['OH',-1,'hydroxide ion','수산화 이온'],['SO4',-2,'sulfate ion','황산 이온'],['CO3',-2,'carbonate ion','탄산 이온'],['NO3',-1,'nitrate ion','질산 이온']].map(([f,c,en,ko])=>({f,c,kind:'ion',en,ko}));
-const MONO=IONS.filter(i=>i.f in ZN);
-const RAD={H:13,C:21,N:21,O:21,Cl:26};
-const MODELS={H2:[['H',89,60],['H',111,60]],O2:[['O',81,60],['O',119,60]],N2:[['N',81,60],['N',119,60]],Cl2:[['Cl',77,60],['Cl',123,60]],HCl:[['Cl',92,60],['H',123,60]],CO:[['C',81,60],['O',119,60]],H2O:[['O',100,54],['H',70,78],['H',130,78]],CO2:[['O',58,60],['O',142,60],['C',100,60]],NH3:[['H',70,74],['H',130,74],['N',100,56],['H',100,90]],CH4:[['H',100,28],['H',66,80],['H',134,80],['C',100,62],['H',100,96]],O3:[['O',64,74],['O',136,74],['O',100,52]]};
-const BALL={H:'#E9ECF2',C:'#3A3E47',N:'#3E68E0',O:'#E2493A',Cl:'#3DB44A'};
-
-function fmt(f,c=0){let h=f.replace(/(\d+)/g,'<sub>$1</sub>');if(c){const m=Math.abs(c);h+=`<sup>${m>1?m:''}${c>0?'+':'−'}</sup>`}return `<span class="fx">${h}</span>`}
-function countAtoms(f){const o={};f.replace(/([A-Z][a-z]?)(\d*)/g,(_,e,n)=>{o[e]=(o[e]||0)+(n?+n:1)});return o}
-const total=f=>Object.values(countAtoms(f)).reduce((a,b)=>a+b,0);
-const sgn=c=>c>0?'+'+c:c<0?'−'+Math.abs(c):'0';
-const KOK=t=>`<span class="ko">${t}</span>`;
-function mk(correct,ds,numeric){
-  ds=uniq(ds.filter(d=>d!==correct));
-  let opts=[correct,...shuffle(ds).slice(0,3)];
-  if(numeric)opts.sort((a,b)=>a-b);else opts=shuffle(opts);
-  return{options:opts.map(o=>numeric?`<span class="num">${o}</span>`:o),answer:opts.indexOf(correct)};
-}
-function modelSVG(k){let s=`<svg class="model" viewBox="0 0 200 120" role="img" aria-label="molecule model">`;for(const [el,x,y] of MODELS[k])s+=`<circle cx="${x}" cy="${y}" r="${RAD[el]}" fill="url(#g-${el})" stroke="var(--ballline)" stroke-width="1.2"/>`;return s+'</svg>'}
-
-const TYPES={classify:['Atom, molecule or ion?','원자·분자·이온 구별'],count:['Count the atoms','원자 개수 세기'],pe:['Protons & electrons','양성자·전자로 입자 찾기'],electrons:['Electrons in an ion','이온의 전자 수'],form:['Ion maker','이온 만들기'],odd:['Find the one','골라내기'],model:['Ball models','분자 모형']};
-const WEIGHT={classify:2,count:1,pe:1,electrons:1,form:1,odd:1,model:1};
-const ALLTYPES=Object.fromEntries(Object.keys(TYPES).map(k=>[k,true]));
-
-const GEN={
-  classify(){
-    const s=rnd([...ATOMS,...MOLS,...IONS]);
-    const labels=[['atom','Atom','원자'],['molecule','Molecule','분자'],['ion','Ion','이온']];
-    let why;
-    if(s.kind==='atom')why=`One atom, no charge → atom.`+KOK('전하가 없는 원자 1개 → 원자');
-    else if(s.kind==='molecule'){const n=total(s.f),one=Object.keys(countAtoms(s.f)).length===1;why=`${n} atoms bonded together, no charge${one?' (same element, still a molecule)':''} → molecule.`+KOK(`원자 ${n}개가 결합, 전하 없음${one?' (같은 원소여도 분자)':''} → 분자`)}
-    else if(!(s.f in ZN))why=`Several atoms, but the whole group carries a charge → ion.`+KOK('여러 원자로 되어 있지만 전하를 띠므로 → 이온 (다원자 이온)');
-    else why=`It carries a ${s.c>0?'positive':'negative'} charge → ion.`+KOK(`전하를 띠므로 → ${s.c>0?'양이온':'음이온'}`);
-    return{key:'c'+s.f+s.c,prompt:'Atom, molecule, or ion?',ko:'원자, 분자, 이온 중 무엇일까?',stage:`<div class="big">${fmt(s.f,s.c)}</div>`,
-      options:labels.map(l=>`<span class="opt-en">${l[1]}</span><span class="opt-ko">${l[2]}</span>`),answer:labels.findIndex(l=>l[0]===s.kind),
-      explain:`<b>${fmt(s.f,s.c)}</b> ${s.en} (${s.ko}). ${why}`};
-  },
-  count(){
-    const s=rnd([...MOLS,...IONS.filter(i=>!(i.f in ZN))]);
-    const ca=countAtoms(s.f),n=total(s.f),distinct=Object.keys(ca).length;
-    const digitSum=s.f.replace(/\D/g,'').split('').reduce((a,b)=>a+ +b,0);
-    const {options,answer}=mk(n,[n-1,n+1,n+2,n-2,distinct,digitSum].filter(x=>x>0),true);
-    const parts=Object.entries(ca).map(([e,k])=>`${e} ${k}`).join(' + ');
-    return{key:'n'+s.f,prompt:'How many atoms are in one particle?',ko:'이 입자 1개에 들어 있는 원자는 모두 몇 개?',stage:`<div class="big">${fmt(s.f,s.c)}</div>`,options,answer,
-      explain:`<b>${fmt(s.f,s.c)}</b> ${s.en}: ${parts} = <b>${n}</b> atoms.`+KOK(`${s.ko}: ${parts} = 원자 ${n}개`)};
-  },
-  pe(){
-    let sym,c;
-    if(RNG()<.75){const i=rnd(MONO.filter(i=>ZN[i.f]<=20));sym=i.f;c=i.c}
-    else{sym=rnd(['H','He','C','N','O','F','Ne','Na','Mg','Al','S','Cl','Ar','K','Ca']);c=0}
-    const p=ZN[sym],e=p-c,correct=fmt(sym,c),d=[];
-    if(c){d.push(fmt(sym,0),fmt(sym,-c),fmt(sym,c>0?c+1:c-1));if(SYM[e]&&SYM[e]!==sym&&e<=20)d.push(fmt(SYM[e],0))}
-    else{d.push(fmt(sym,1),fmt(sym,-1));if(SYM[p+1]&&p+1<=20)d.push(fmt(SYM[p+1],0));if(SYM[p-1])d.push(fmt(SYM[p-1],0))}
-    const {options,answer}=mk(correct,d);
-    return{key:'p'+sym+c,prompt:'Which particle is this?',ko:'이 입자는 무엇일까?',
-      stage:`<div class="chips"><div class="chip"><small>Protons · 양성자</small><b>${p}</b></div><div class="chip"><small>Electrons · 전자</small><b>${e}</b></div></div>`,options,answer,
-      explain:`${p} protons → ${EN[sym]} (${sym}). Charge = ${p} − ${e} = ${sgn(c)} → <b>${correct}</b>${c?'':' (neutral atom)'}`+KOK(`양성자 ${p}개 → ${KO[sym]}. 전하 = ${p} − ${e} = ${sgn(c)} → ${c?(c>0?'양이온':'음이온'):'중성 원자'}`)};
-  },
-  electrons(){
-    const i=rnd(MONO),p=ZN[i.f],e=p-i.c,m=Math.abs(i.c);
-    const {options,answer}=mk(e,[p,p+i.c,e+1,e-1,e+2].filter(x=>x>=0),true);
-    return{key:'e'+i.f,prompt:'How many electrons does this ion have?',ko:'이 이온의 전자는 몇 개일까?',stage:`<div class="big">${fmt(i.f,i.c)}</div>`,options,answer,
-      explain:`A ${EN[i.f]} atom has ${p} electrons. It ${i.c>0?'loses':'gains'} ${m} → <b>${e}</b>.`+KOK(`${KO[i.f]} 원자의 전자 ${p}개에서 ${m}개를 ${i.c>0?'잃어':'얻어'} → ${e}개`)};
-  },
-  form(){
-    const i=rnd(MONO),m=Math.abs(i.c),lose=i.c>0;
-    const d=[fmt(i.f,-i.c),fmt(i.f,0),fmt(i.f,lose?i.c+1:i.c-1)];if(m>1)d.push(fmt(i.f,lose?i.c-1:i.c+1));
-    const {options,answer}=mk(fmt(i.f,i.c),d);
-    const cap=EN[i.f][0].toUpperCase()+EN[i.f].slice(1);
-    return{key:'f'+i.f+i.c,prompt:`${cap} atom ${lose?'loses':'gains'} ${m} electron${m>1?'s':''}. What forms?`,ko:`${KO[i.f]} 원자가 전자 ${m}개를 ${lose?'잃으면':'얻으면'}?`,
-      stage:`<div class="formrow"><span class="big">${fmt(i.f)}</span><span class="arrow-t">${lose?'−':'+'} ${m}e<sup>−</sup> →</span><span class="big q">?</span></div>`,options,answer,
-      explain:lose?`Losing electrons leaves more protons than electrons → positive ion (cation): <b>${fmt(i.f,i.c)}</b>.`+KOK('전자를 잃으면 양성자가 더 많아져 → 양이온')
-                  :`Gaining electrons gives more electrons than protons → negative ion (anion): <b>${fmt(i.f,i.c)}</b>.`+KOK('전자를 얻으면 전자가 더 많아져 → 음이온')};
-  },
-  odd(){
-    const kinds=[['molecule',MOLS,'MOLECULE','분자를 찾아라!','분자','Bonded atoms with no charge.','원자가 결합, 전하 없음'],['ion',IONS,'ION','이온을 찾아라!','이온','It has a + or − charge.','+ 또는 − 전하가 있음'],['atom',ATOMS,'ATOM','원자를 찾아라!','원자','One atom with no charge.','원자 1개, 전하 없음']];
-    const t=rnd(kinds),target=rnd(t[1]);
-    const others=shuffle([...ATOMS,...MOLS,...IONS].filter(s=>s.kind!==t[0])).slice(0,3);
-    const {options,answer}=mk(fmt(target.f,target.c),others.map(s=>fmt(s.f,s.c)));
-    return{key:'o'+t[0]+target.f+target.c,prompt:`Which one is ${t[0]==='molecule'?'a':'an'} ${t[0]}?`,ko:t[3],stage:`<div class="hunt">${t[2]}<small>${t[4]}</small></div>`,options,answer,
-      explain:`<b>${fmt(target.f,target.c)}</b> ${target.en}. ${t[5]}`+KOK(`${target.ko}: ${t[6]}`)};
-  },
-  model(){
-    const keys=Object.keys(MODELS),k=rnd(keys);
-    const {options,answer}=mk(fmt(k),shuffle(keys.filter(x=>x!==k)).map(x=>fmt(x)));
-    const mol=MOLS.find(m=>m.f===k),ca=countAtoms(k);
-    return{key:'m'+k,prompt:'Which formula matches this model?',ko:'이 모형에 맞는 화학식은?',
-      stage:modelSVG(k)+`<div class="legend">${['H','C','N','O','Cl'].map(e=>`<span><i style="background:${BALL[e]}"></i>${e}</span>`).join('')}</div>`,options,answer,
-      explain:`${Object.entries(ca).map(([e,n])=>`${n} ${e}`).join(', ')} → <b>${fmt(k)}</b> ${mol.en}.`+KOK(`${mol.ko}: ${Object.entries(ca).map(([e,n])=>`${KO[e]} ${n}`).join(', ')}`)};
-  }
+/* ================= question bank =================
+   Built from the Grade 9 lesson folder: each unit's worksheet "Check Your Understanding" items
+   (verbatim, with the answer key's reasons) plus multiple-choice items made from its Practice
+   tasks and answer key. In every item the FIRST option is the correct one; options are shuffled
+   for display (the same order for both players). Text markup: X_2 = subscript, ^{2+} = superscript. */
+const UNITS={
+  1:['Atoms, elements & formulas','원소·원소 기호·화학식','4-1'],
+  2:['Inside the atom & periodic table','원자의 구조·주기율표','4-2'],
+  3:['Atoms & molecules','원자와 분자','4-3'],
+  4:['Ions','이온','4-4'],
+  5:['Ionic compounds','이온 화합물 (심화)','4-5'],
+  6:['Physical vs chemical change','물리 변화와 화학 변화','Ⅰ-1']
 };
-function genQuestion(types,used){
-  const en=Object.keys(TYPES).filter(k=>types&&types[k]);if(!en.length)en.push('classify');
-  const bag=[];en.forEach(k=>{for(let i=0;i<WEIGHT[k];i++)bag.push(k)});
-  let q;for(let t=0;t<30;t++){const type=rnd(bag);q=GEN[type]();q.type=type;if(!used||!used.has(q.key))break}
-  if(used)used.add(q.key);return q;
+const ALLUNITS=Object.fromEntries(Object.keys(UNITS).map(k=>[k,true]));
+const Q=(u,q,ko,o,ex,exko,s)=>({u,q,ko,o,ex,exko,s});
+const BANK_RAW=[
+/* ---------- 4-1 Building Blocks of Matter ---------- */
+Q(1,'Which is the basic particle that makes up all matter?','모든 물질을 이루는 기본 입자는?',['Atom','Element','Compound','Formula'],'Atoms are the basic particles of all matter. An element is a kind of substance, not the particle itself.','원자는 물질을 이루는 기본 입자. 원소는 물질의 종류(성분)이지 입자 자체가 아님.'),
+Q(1,'Which substance is an element?','원소에 해당하는 물질은?',['Helium (He)','Water (H_2O)','Methane (CH_4)','Salt (NaCl)'],'He is made of only one kind of atom. CH_4 and NaCl have two kinds.','He는 한 종류의 원자로만 이루어짐. CH₄, NaCl은 두 종류.'),
+Q(1,'Which element symbol is written correctly?','원소 기호를 바르게 쓴 것은?',['Fe (iron)','CA (calcium)','al (aluminum)','MG (magnesium)'],'First letter capital, second letter small: Fe.','첫 글자 대문자 + 둘째 글자 소문자.'),
+Q(1,'What does the “3” in NH_3 tell us?','NH₃의 3이 뜻하는 것은?',['There are 3 hydrogen atoms','There are 3 ammonia particles','There are 3 nitrogen atoms','There are 3 kinds of atoms'],'A subscript counts the atoms of the element right before it (H).','아래 첨자는 바로 앞 원소(H)의 원자 수.','NH_3'),
+Q(1,'How many atoms are in one CH_4 particle?','CH₄ 한 개를 이루는 원자 수는?',['5','4','1','3'],'C 1 + H 4 = 5. The 1 for carbon is not written.','C 1 + H 4 = 5. 생략된 1(탄소)을 빼먹지 않기.','CH_4'),
+Q(1,'Which pair are BOTH compounds?','두 물질이 모두 화합물인 것은?',['CO_2 and NH_3','O_2 and O_3','Cl_2 and NaCl','He and H_2O'],'CO_2 and NH_3 each have two kinds of atoms. O_3 has 3 atoms but only one kind.','CO₂, NH₃ 모두 두 종류의 원자. O₃은 원자 3개지만 한 종류.'),
+Q(1,'How many atoms are there in total in 3CO_2?','3CO₂에 들어 있는 원자는 모두 몇 개인가?',['9','6','5','3'],'3 × (1 + 2) = 9.','3 × (1 + 2) = 9. 계수만 보거나 O만 세지 않기.','3CO_2'),
+Q(1,'A box holds 4 particles. Each has 1 N atom and 3 H atoms. Which matches?','질소 원자 1개와 수소 원자 3개로 된 입자 4개를 바르게 나타낸 것은?',['4NH_3','N_4H_12','NH_12','4N3H'],'4 particles → coefficient 4; one particle is NH_3 → 4NH_3.','입자 4개 → 계수 4, 한 입자 NH₃ → 4NH₃.'),
+Q(1,'Water is split by electricity. Which gas collects at the (−) electrode?','물의 분해 실험에서 (−)극 쪽에 모이는 기체는?',['Hydrogen','Oxygen','Nitrogen','Carbon dioxide'],'(−): hydrogen, more volume, burns with a “pop”. (+): oxygen, a glowing splint flares up.','(−)극: 수소(부피 2, ‘펑’ 소리). (+)극: 산소(불씨가 타오름).'),
+Q(1,'In water decomposition, what is the volume ratio hydrogen : oxygen?','물의 분해에서 수소 : 산소의 부피비는?',['2 : 1','1 : 2','1 : 1','3 : 1'],'Hydrogen collects twice as much as oxygen.','수소가 산소의 2배 모인다.','H_2O'),
+Q(1,'Why do we add a little NaOH to water before splitting it?','물의 분해 실험에서 수산화 나트륨을 넣는 까닭은?',['Pure water barely conducts electricity','It makes more oxygen gas','It colours the gases','It stops hydrogen from burning'],'Pure water hardly lets current flow; NaOH helps the current flow.','순수한 물은 전류가 거의 흐르지 않음.'),
+Q(1,'O_2 has two atoms in each particle. What is oxygen gas?','O₂는 원자 2개로 되어 있다. 산소 기체는?',['An element, because it has one kind of atom','A compound, because it has two atoms','A mixture of two gases','An ion'],'Element vs compound depends on the KIND of atoms, not the number.','판단 기준은 원자의 개수가 아니라 종류.','O_2'),
+Q(1,'What is the symbol for sodium?','나트륨의 원소 기호는?',['Na','So','S','N'],'From the Latin name natrium.','라틴어 natrium에서 온 기호.'),
+Q(1,'What is the symbol for iron?','철의 원소 기호는?',['Fe','Ir','I','F'],'From the Latin name ferrum.','라틴어 ferrum에서 온 기호.'),
+Q(1,'What is the symbol for potassium?','칼륨의 원소 기호는?',['K','P','Po','Pt'],'From the Latin name kalium.','라틴어 kalium에서 온 기호.'),
+Q(1,'Which element has the symbol Ag?','원소 기호 Ag는 어떤 원소인가?',['Silver','Gold','Argon','Aluminum'],'Ag comes from the Latin argentum (silver). Gold is Au.','Ag = 은 (argentum). 금은 Au.','Ag'),
+Q(1,'What does CO (not Co) mean?','CO(Co가 아님)가 뜻하는 것은?',['A compound of carbon and oxygen','The element cobalt','The same thing as Co','A carbon ion'],'CO is two symbols, C and O: carbon monoxide. Co is one element, cobalt.','CO = 탄소·산소 화합물(일산화 탄소), Co = 원소 코발트.','CO'),
+Q(1,'How many atoms are there in total in 4NH_3?','4NH₃에 들어 있는 원자는 모두 몇 개인가?',['16','12','7','4'],'4 × (1 + 3) = 16.','4 × (1 + 3) = 16.','4NH_3'),
+Q(1,'How many hydrogen atoms are in 2CH_4?','2CH₄에 들어 있는 수소 원자 수는?',['8','4','6','2'],'2 × 4 = 8.','2 × 4 = 8.','2CH_4'),
+Q(1,'H_2O and H_2O_2 have the same kinds of atoms. Which is true?','H₂O와 H₂O₂에 대해 옳은 것은?',['They are different substances with different properties','They are the same substance','They are both elements','H_2O_2 is a mixture of water and oxygen'],'Same kinds of atoms but a different number: water vs hydrogen peroxide (a disinfectant).','원자 수·비율이 달라 성질이 다른 물질.'),
+Q(1,'Which of these is an element?','다음 중 원소는?',['O_3 (ozone)','NH_3 (ammonia)','NO_2 (nitrogen dioxide)','CH_4 (methane)'],'O_3 has 3 atoms but only one kind (O).','O₃은 원자 3개지만 한 종류(O).'),
+Q(1,'Glucose has 6 C, 12 H and 6 O atoms. Which formula is right?','탄소 6, 수소 12, 산소 6개로 된 포도당의 화학식은?',['C_6H_12O_6','C_12H_6O_6','6C12H6O','C_6H_6O_12'],'Each subscript follows its own element.','아래 첨자는 각 원소 바로 뒤에.'),
+Q(1,'2H_2O → 2H_2 + O_2. What happens to the atoms?','2H₂O → 2H₂ + O₂ 에서 원자는?',['They are only rearranged','New atoms are created','Some atoms are destroyed','They turn into new elements'],'Before: H 4, O 2. After: H 4, O 2. Atoms are only rearranged.','반응 전후 H 4, O 2 그대로 → 배열만 바뀜.'),
+/* ---------- 4-2 Inside the Atom ---------- */
+Q(2,'Which part of the atom moves quickly around the centre?','원자핵 주위를 빠르게 움직이는 것은?',['Electron','Proton','Neutron','The nucleus'],'Light electrons move fast around the nucleus.','가벼운 전자가 원자핵 주위를 빠르게 움직인다.'),
+Q(2,'An atom has a nucleus charge of +6. How many electrons does it have?','원자핵의 전하량이 +6인 원자의 전자 수는?',['6','3','12','0'],'Neutral atom: 6 protons = 6 electrons.','중성 원자: 양성자 6 = 전자 6.'),
+Q(2,'Element X has atomic number 11. What is X?','원자 번호가 11인 원소 X는?',['Sodium (Na)','Neon (Ne)','Magnesium (Mg)','Potassium (K)'],'Atomic number = number of protons = 11 → Na.','원자 번호 = 양성자 수 = 11 → Na.'),
+Q(2,'Which gas fills party balloons safely because it hardly reacts?','거의 반응하지 않아 풍선에 안전하게 쓰는 기체는?',['Helium','Hydrogen','Oxygen','Nitrogen'],'He is in group 18 and hardly reacts. Hydrogen is light but can explode.','He는 18족, 거의 반응하지 않음. 수소는 폭발 위험.'),
+Q(2,'Which pair of elements is in the same group?','같은 족에 속하는 원소끼리 짝지은 것은?',['Na and K','Li and Be','Mg and Al','O and Ne'],'Na and K are both in group 1 (same column).','Na와 K는 모두 1족(세로줄).'),
+Q(2,'Which property do Li, Na and K share?','리튬·나트륨·칼륨의 공통 성질은?',['Soft enough to cut with a knife','Do not react with anything','Glow when electricity flows','Very hard, used for buildings'],'Group 1 metals are soft enough to cut with a knife.','1족 금속은 칼로 자를 수 있을 만큼 무르다.'),
+Q(2,'An atom has 9 protons and 10 neutrons. Which is correct?','양성자 9개, 중성자 10개인 원자에 대해 옳은 것은?',['It is fluorine (F)','Atomic number is 19','It has 10 electrons','Its nucleus is +19'],'Atomic number 9 → fluorine, 9 electrons. Neutrons are not added.','원자 번호 9 → 플루오린, 전자 9개. 중성자는 더하지 않음.'),
+Q(2,'An atom of element X loses one electron. What is true now?','원소 X의 원자가 전자 1개를 잃었다. 옳은 것은?',['It is still X but no longer neutral','It turns into a different element','Its atomic number goes down by one','One of its protons disappears'],'The number of protons is unchanged → same element, now with a (+) charge.','양성자 수 그대로 → 같은 원소, (+)전하를 띰.'),
+Q(2,'What is the charge of a neutron?','중성자의 전하는?',['0 (no charge)','+1','−1','+2'],'N = Neutral. Protons are +1, electrons −1.','중성자는 전하가 없다.'),
+Q(2,'Which particles make up the nucleus?','원자핵을 이루는 입자는?',['Protons and neutrons','Protons and electrons','Neutrons and electrons','Only electrons'],'The nucleus is the tiny, heavy centre made of protons and neutrons.','원자핵 = 양성자 + 중성자.'),
+Q(2,'Why is an atom electrically neutral?','원자가 전기적으로 중성인 까닭은?',['Number of protons = number of electrons','Neutrons cancel the + and − charges','Electrons have no charge','The nucleus has no charge'],'Neutrons have no charge and cancel nothing. (+) protons = (−) electrons.','중성자는 아무것도 상쇄하지 않음. 양성자 수 = 전자 수.'),
+Q(2,'What decides the kind of element?','원소의 종류를 결정하는 것은?',['The number of protons','The number of neutrons','The number of electrons','The size of the atom'],'The number of protons (atomic number) decides the element.','양성자 수(원자 번호)가 원소의 종류를 결정.'),
+Q(2,'A lithium atom has 3 protons and 4 neutrons. How many electrons?','양성자 3개, 중성자 4개인 리튬 원자의 전자 수는?',['3','4','7','1'],'Electrons = protons in a neutral atom. Don’t add the neutrons.','전자 수 = 양성자 수. 중성자를 더하지 않기.'),
+Q(2,'I am a neutral atom with 17 electrons. Who am I?','전자가 17개인 중성 원자는?',['Cl','Ar','S','K'],'17 electrons = 17 protons = atomic number 17 → chlorine.','전자 17 = 양성자 17 → 염소(Cl).'),
+Q(2,'My nucleus has a charge of +10. Who am I?','원자핵의 전하량이 +10인 원자는?',['Ne','Na','F','O'],'+10 → 10 protons → neon.','+10 → 양성자 10개 → 네온.'),
+Q(2,'Where is Mg on the periodic table?','마그네슘(Mg)의 주기와 족은?',['Period 3, group 2','Period 2, group 3','Period 3, group 12','Period 2, group 12'],'Mg (12) is in the 3rd row and 2nd column.','Mg: 3주기 2족.'),
+Q(2,'Which element is in period 3, group 17?','3주기 17족 원소는?',['Cl','F','S','Ar'],'Row 3, column 17 → chlorine.','3주기 17족 → 염소.'),
+Q(2,'What is a horizontal row of the periodic table called?','주기율표의 가로줄을 무엇이라고 하는가?',['A period','A group','A family','A block'],'Row = period (주기). Column = group (족).','가로줄 = 주기, 세로줄 = 족.'),
+Q(2,'Why is argon (Ar) used in welding?','아르곤을 용접에 쓰는 까닭은?',['It hardly reacts, so it keeps oxygen away from hot metal','It reacts easily with hot metal','It burns with a hot flame','It is a strong metal'],'Group 18 gases hardly react.','18족 기체는 거의 반응하지 않음.'),
+Q(2,'Why don’t we fill party balloons with hydrogen?','풍선을 수소로 채우지 않는 까닭은?',['Hydrogen burns or explodes easily with oxygen','Hydrogen is too heavy','Hydrogen is a liquid','Hydrogen is in group 18'],'H_2 burns easily; helium hardly reacts.','수소는 산소와 쉽게 타거나 폭발.'),
+Q(2,'Compared with a proton, an electron is…','양성자와 비교한 전자의 질량은?',['Much lighter (about 1/1836)','Much heavier','About the same mass','Twice as heavy'],'Almost all the mass is in the nucleus.','전자는 양성자의 약 1/1836.'),
+Q(2,'What is most of an atom made of?','원자의 대부분을 차지하는 것은?',['Empty space','Neutrons','Protons','Electrons packed together'],'Rutherford’s gold foil experiment: the nucleus is tiny; most of the atom is empty.','러더퍼드 금박 실험: 원자핵은 매우 작고 대부분 빈 공간.'),
+Q(2,'Group 1 metals react with water to make which gas?','1족 금속이 물과 반응하면 생기는 기체는?',['Hydrogen','Oxygen','Chlorine','Helium'],'Li, Na, K + water → hydrogen gas.','1족 + 물 → 수소 기체.'),
+/* ---------- 4-3 Atoms & Molecules ---------- */
+Q(3,'Which substance is made of molecules?','분자로 이루어진 물질은?',['Nitrogen (N_2)','Neon (Ne)','Aluminum (Al)','Gold (Au)'],'N_2 is two nitrogen atoms joined. Group 18 gases and metals are made of atoms.','N₂는 질소 원자 2개가 결합한 분자.'),
+Q(3,'How many atoms are in one ammonia (NH_3) molecule?','암모니아 분자 1개의 원자 수는?',['4','3','1','2'],'N 1 + H 3 = 4.','N 1 + H 3 = 4.','NH_3'),
+Q(3,'What is the smallest particle that still has the properties of water?','물의 성질을 나타내는 가장 작은 입자는?',['A water molecule','A hydrogen atom','An oxygen atom','A water droplet'],'Split into atoms, the properties of water are gone. A droplet is many molecules.','원자로 쪼개면 물의 성질이 사라짐.'),
+Q(3,'O_2 and O_3 are made of the same kind of atom. Which is true?','O₂와 O₃에 대해 옳은 것은?',['They have different properties','They are the same substance','O_3 is a compound of oxygen','Both of them are compounds'],'Different numbers of atoms → different substances (we breathe O_2; O_3 blocks UV).','원자 수가 달라 성질이 다른 물질.'),
+Q(3,'A box holds 3 CO_2 and 2 H_2O molecules. How many O atoms in total?','CO₂ 3개와 H₂O 2개 속 산소 원자는 모두 몇 개?',['8','5','6','10'],'3 × 2 + 2 × 1 = 8.','3 × 2 + 2 × 1 = 8.','3CO_2 + 2H_2O'),
+Q(3,'Hydrogen molecules (H_2) are split into separate H atoms. Which is true?','수소 분자를 원자로 나누면?',['They lose hydrogen gas’s properties','They still show all of hydrogen gas’s properties','They join to become helium','The total number of atoms goes down'],'Splitting a molecule into atoms removes the substance’s properties.','분자를 원자로 나누면 그 물질의 성질이 사라짐.'),
+Q(3,'Which substance is made of separate atoms, not molecules?','분자가 아니라 원자로 이루어진 물질은?',['Helium (He)','Nitrogen (N_2)','Water (H_2O)','Carbon dioxide (CO_2)'],'In helium, each atom shows the properties of helium.','헬륨은 원자 하나하나가 성질을 나타냄.'),
+Q(3,'Iron atoms are joined to many other iron atoms. What is iron made of?','철은 무엇으로 이루어진 물질인가?',['Iron atoms (formula Fe)','One giant iron molecule','Fe_2 molecules','Iron ions only'],'The particle that shows iron’s properties is the iron atom.','철의 성질을 나타내는 입자 = 철 원자, 화학식 Fe.'),
+Q(3,'Which is a molecule made of only ONE kind of atom?','한 종류의 원자로 된 분자는?',['O_3','H_2O','CO_2','CH_4'],'O_3 is an element made of molecules.','O₃는 분자로 된 원소.'),
+Q(3,'How many atoms are in one ethanol molecule, C_2H_5OH?','에탄올(C₂H₅OH) 분자 1개의 원자 수는?',['9','8','3','6'],'C 2 + H 6 + O 1 = 9. Don’t forget the H in OH.','C 2 + H 6 + O 1 = 9.','C_2H_5OH'),
+Q(3,'How many KINDS of atoms are in ethanol, C_2H_5OH?','에탄올을 이루는 원자의 종류 수는?',['3','2','9','4'],'C, H and O.','C, H, O 세 종류.','C_2H_5OH'),
+Q(3,'Which is the poisonous gas from incomplete burning?','불완전 연소로 생기는 독성 기체는?',['CO','CO_2','O_3','N_2'],'CO and CO_2 differ by one O atom but are totally different substances.','CO와 CO₂는 O 하나 차이지만 전혀 다른 물질.'),
+Q(3,'Which is used in fire extinguishers and fizzy drinks?','소화기와 탄산음료에 쓰이는 것은?',['CO_2','CO','O_3','H_2'],'Carbon dioxide (CO_2).','이산화 탄소(CO₂).'),
+Q(3,'Which molecule blocks UV light high in the sky?','하늘 높은 곳에서 자외선을 막는 분자는?',['O_3','O_2','N_2','CO_2'],'Ozone (O_3). We breathe O_2.','오존(O₃). 우리가 호흡하는 것은 O₂.'),
+Q(3,'How many molecules and O atoms are in 3O_2?','3O₂의 분자 수와 산소 원자 수는?',['3 molecules, 6 O atoms','6 molecules, 3 O atoms','3 molecules, 3 O atoms','2 molecules, 6 O atoms'],'Coefficient 3 = 3 molecules; 3 × 2 = 6 atoms.','계수 3 = 분자 3개, 3 × 2 = 원자 6개.','3O_2'),
+Q(3,'How many atoms are there in total in 2NH_3?','2NH₃의 전체 원자 수는?',['8','6','5','4'],'2 × (1 + 3) = 8.','2 × (1 + 3) = 8.','2NH_3'),
+Q(3,'How many atoms are there in total in 4CO_2?','4CO₂의 전체 원자 수는?',['12','8','7','4'],'4 × (1 + 2) = 12.','4 × (1 + 2) = 12.','4CO_2'),
+Q(3,'Water contains hydrogen atoms. Does water go “pop” near a flame like hydrogen gas?','물에 수소 원자가 있으니 수소처럼 ‘펑’ 하고 탈까?',['No, a molecule has its own properties','Yes, always','Only when it is hot','Only in sunlight'],'The H atoms in water do not show the properties of H_2 gas.','물 분자 속 H는 수소 기체의 성질이 없음.'),
+Q(3,'Which statement is TRUE?','옳은 것은?',['Some elements are made of molecules, like O_2','All elements are made of single atoms','All compounds are made of molecules','NaCl is made of molecules'],'H_2, O_2, N_2, O_3 are elements made of molecules; NaCl is made of ions.','H₂·O₂·N₂·O₃는 분자로 된 원소, NaCl은 이온으로 된 화합물.'),
+/* ---------- 4-4 Ions ---------- */
+Q(4,'A magnesium atom loses 2 electrons. Which ion forms?','마그네슘 원자가 전자 2개를 잃으면?',['Mg^{2+}','Mg^{2−}','Mg^{+2}','Mg_2'],'Losing electrons → positive ion; number first, then sign.','전자를 잃으면 양이온, 숫자 먼저 → Mg²⁺.'),
+Q(4,'A sodium atom has 11 protons. How many electrons does Na^{+} have?','Na⁺의 전자 수는?',['10','11','12','1'],'11 − 1 = 10.','11개 중 1개를 잃어 10개.','Na^{+}'),
+Q(4,'What is the correct name of S^{2−}?','S²⁻의 이름은?',['Sulfide ion (황화 이온)','Sulfur ion (황 이온)','Sulfate ion (황산 이온)','Sulfuric ion (황산화 이온)'],'Negative ion: root + -ide. Sulfate is SO_4^{2−}.','음이온: 원소 이름 + 화 이온. 황산 이온은 SO₄²⁻.','S^{2−}'),
+Q(4,'Which solution does NOT conduct electricity?','전기가 통하지 않는 수용액은?',['Sugar water','Salt water','Sports (ion) drink','Calcium chloride solution'],'Sugar is made of molecules — no charged particles.','설탕은 분자로 이루어져 전하를 띤 입자가 없음.'),
+Q(4,'A drop of copper(II) nitrate (blue Cu^{2+}) is on wet filter paper with power on. What happens?','질산 구리(II) 수용액 실험 결과는?',['Blue moves toward the (−) electrode','Blue moves toward the (+) electrode','Blue spreads evenly both ways','Blue does not move at all'],'Cu^{2+} is positive → pulled to (−). Opposite charges attract.','Cu²⁺는 양이온 → (−)극으로 이동.'),
+Q(4,'An unknown purple spot moves toward the (+) electrode. Which is true?','(+)극으로 이동하는 보라색 이온에 대해 옳은 것은?',['It has more electrons than protons','It is a positive ion that lost electrons','It has no charge, like a molecule','It is pulled by (+) because they are alike'],'Pulled to (+) → negative ion → electrons > protons.','(+)극으로 끌림 → 음이온 → 전자 수 > 양성자 수.'),
+Q(4,'Fluorine (9 protons) gains 1 electron. How many electrons does F^{−} have?','F⁻의 전자 수는?',['10','9','8','1'],'9 + 1 = 10.','9 + 1 = 10.','F^{−}'),
+Q(4,'A sulfur atom gains 2 electrons. Which ion forms?','황 원자가 전자 2개를 얻으면?',['S^{2−}','S^{2+}','S^{−2}','S_2'],'Gaining electrons → negative ion. Write the number before the sign.','전자를 얻으면 음이온, 숫자 먼저 → S²⁻.'),
+Q(4,'Which ion formula is written correctly?','이온식을 바르게 쓴 것은?',['Ca^{2+}','Ca^{+2}','Cl^{1−}','Li^{1+}'],'Number first, then sign; the 1 is not written (Cl^{−}, Li^{+}).','숫자 → 부호, 1은 생략.'),
+Q(4,'What is the name of Cl^{−}?','Cl⁻의 이름은?',['Chloride ion (염화 이온)','Chlorine ion (염소 이온)','Chlorate ion','Chloric ion'],'chlorine → chloride. A very common mistake is “chlorine ion”.','chlorine → chloride, 염소 → 염화.','Cl^{−}'),
+Q(4,'What is the name of O^{2−}?','O²⁻의 이름은?',['Oxide ion (산화 이온)','Oxygen ion (산소 이온)','Ozone ion','Hydroxide ion'],'oxygen → oxide. Hydroxide is OH^{−}.','oxygen → oxide, 산소 → 산화.','O^{2−}'),
+Q(4,'Which is a polyatomic ion?','다원자 이온은?',['SO_4^{2−}','Na^{+}','Cl^{−}','O^{2−}'],'SO_4^{2−} (sulfate) is made of several atoms.','SO₄²⁻(황산 이온)는 여러 원자로 된 이온.'),
+Q(4,'What is the name of NO_3^{−}?','NO₃⁻의 이름은?',['Nitrate ion (질산 이온)','Nitride ion','Nitrogen ion','Nitric ion'],'Polyatomic ion names are learned as a set: sulfate, carbonate, nitrate, hydroxide.','다원자 이온: 황산·탄산·질산·수산화 이온.','NO_3^{−}'),
+Q(4,'What is the English name of CaCl_2?','CaCl₂의 영어 이름은?',['Calcium chloride','Chloride calcium','Calcium chlorine','Chlorine calcium'],'English: positive ion first, then the -ide name.','영어는 양이온 먼저.','CaCl_2'),
+Q(4,'What is the Korean name of CaO?','CaO의 한국어 이름은?',['산화 칼슘','칼슘 산화','산소 칼슘','칼슘 산소'],'Korean puts the negative ion first: 산화 칼슘 (calcium oxide).','한국어는 음이온 먼저 → 산화 칼슘.','CaO'),
+Q(4,'When an atom becomes a positive ion, what changes?','원자가 양이온이 될 때 변하는 것은?',['Only the number of electrons','The number of protons','The number of neutrons','Both protons and electrons'],'Protons never change when an ion forms.','이온이 될 때 양성자 수는 변하지 않는다.'),
+Q(4,'Does a dry salt crystal conduct electricity?','마른 소금 결정은 전기가 통할까?',['No, the ions cannot move in a solid','Yes, just like salt water','Only when it is cold','Yes, even better than salt water'],'Ions can only carry charge when dissolved (or melted).','고체에서는 이온이 움직이지 못함.'),
+Q(4,'In salt water, where do Na^{+} ions move?','소금물에서 Na⁺은 어느 극으로 이동할까?',['To the (−) electrode','To the (+) electrode','They do not move','To both electrodes equally'],'Opposite charges attract: Na^{+} → (−), Cl^{−} → (+).','반대 전하끼리 끌림: Na⁺ → (−)극.'),
+Q(4,'Why does distilled water not conduct electricity?','증류수에 전기가 통하지 않는 까닭은?',['It has only water molecules and no ions','It has too many ions','Its ions are too heavy','It contains sugar'],'No ions → nothing to carry the charge.','이온이 없어 전하를 옮길 입자가 없음.'),
+Q(4,'What is the name of KNO_3?','KNO₃의 이름은?',['Potassium nitrate (질산 칼륨)','Nitrate potassium (칼륨 질산)','Potassium nitride','Potassium nitrogen'],'K^{+} + NO_3^{−} → potassium nitrate / 질산 칼륨.','K⁺ + NO₃⁻ → 질산 칼륨.','KNO_3'),
+/* ---------- 4-5 Ionic Compounds ---------- */
+Q(5,'Ca^{2+} and S^{2−} form an ionic compound. What is its formula?','Ca²⁺와 S²⁻로 된 화합물의 화학식은?',['CaS','Ca_2S_2','CaS_2','Ca_2S'],'(+2) + (−2) = 0 → 1 : 1 → CaS.','(+2) + (−2) = 0 → 1 : 1 → CaS.'),
+Q(5,'How many ions are in one unit of Li_2O?','Li₂O 한 단위의 이온 수는?',['3','2','1','4'],'2 Li^{+} + 1 O^{2−} = 3 ions.','Li⁺ 2개 + O²⁻ 1개 = 3개.','Li_2O'),
+Q(5,'Which name of MgS is correct?','MgS의 이름으로 옳은 것은?',['magnesium sulfide / 황화 마그네슘','magnesium sulfide / 마그네슘 황화','sulfide magnesium / 황화 마그네슘','magnesium sulfur / 황화 마그네슘'],'English: positive first. Korean: negative first.','영어는 양이온 먼저, 한국어는 음이온 먼저.','MgS'),
+Q(5,'Mg^{2+} and OH^{−} form magnesium hydroxide. Which formula is correct?','수산화 마그네슘의 화학식은?',['Mg(OH)_2','MgOH_2','(MgOH)_2','MgOH'],'Two OH^{−} are needed, so keep OH together in brackets.','OH⁻ 2개 → 덩어리째 괄호.'),
+Q(5,'Which formula is WRONG because the charges do not cancel?','전하의 합이 0이 아닌 잘못된 화학식은?',['Ag_2NO_3','Na_2SO_4','CaCO_3','MgF_2'],'2 Ag^{+} (+2) + 1 NO_3^{−} (−1) = +1. Correct: AgNO_3.','Ag⁺ 2개 + NO₃⁻ 1개 = +1 ≠ 0.'),
+Q(5,'A sample of CaCl_2 contains 6 Cl^{−} ions. How many Ca^{2+} ions are in it?','CaCl₂에 Cl⁻가 6개 있을 때 Ca²⁺의 수는?',['3','6','12','2'],'Ca^{2+} : Cl^{−} = 1 : 2 → 3.','1 : 2 이므로 3개.','CaCl_2'),
+Q(5,'Ca^{2+} and F^{−} form a compound. What is its formula?','Ca²⁺와 F⁻로 된 화합물은?',['CaF_2','Ca_2F','CaF','Ca_2F_2'],'1 Ca^{2+} (+2) + 2 F^{−} (−2) = 0.','Ca²⁺ 1개 + F⁻ 2개 = 0.'),
+Q(5,'Li^{+} and S^{2−} form a compound. What is its formula?','Li⁺와 S²⁻로 된 화합물은?',['Li_2S','LiS_2','LiS','Li_2S_2'],'2 Li^{+} (+2) + 1 S^{2−} (−2) = 0.','Li⁺ 2개 + S²⁻ 1개 = 0.'),
+Q(5,'Na^{+} and O^{2−} form a compound. What is its formula?','Na⁺와 O²⁻로 된 화합물은?',['Na_2O','NaO_2','NaO','Na_2O_2'],'2 Na^{+} + 1 O^{2−} = 0.','Na⁺ 2개 + O²⁻ 1개.'),
+Q(5,'Mg^{2+} and NO_3^{−} form a compound. What is its formula?','Mg²⁺와 NO₃⁻로 된 화합물은?',['Mg(NO_3)_2','MgNO_3','MgNO_32','Mg_2NO_3'],'Two NO_3^{−} are needed, so the polyatomic ion goes in brackets.','NO₃⁻ 2개 → 괄호로 묶기.'),
+Q(5,'Ag^{+} and Cl^{−} form a compound. What is its formula?','Ag⁺와 Cl⁻로 된 화합물은?',['AgCl','Ag_2Cl','AgCl_2','Ag_2Cl_2'],'(+1) + (−1) = 0 → 1 : 1.','1 : 1 → AgCl.'),
+Q(5,'Ba^{2+} and CO_3^{2−} form a compound. What is its formula?','Ba²⁺와 CO₃²⁻로 된 화합물은?',['BaCO_3','Ba_2CO_3','Ba(CO_3)_2','BaCO'],'(+2) + (−2) = 0 → 1 : 1. Keep CO_3 whole.','1 : 1, CO₃는 한 덩어리.'),
+Q(5,'Na^{+} and CO_3^{2−} form a compound. What is its formula?','Na⁺와 CO₃²⁻로 된 화합물은?',['Na_2CO_3','NaCO_3','Na_2CO','Na(CO_3)_2'],'2 Na^{+} + 1 CO_3^{2−} = 0. The 3 in CO_3 is part of the ion.','CO₃의 3은 이온의 일부 — 빼면 안 됨.'),
+Q(5,'How many ions are in one unit of K_2SO_4?','K₂SO₄ 한 단위의 이온 수는?',['3','2','7','6'],'2 K^{+} + 1 SO_4^{2−} = 3 ions.','K⁺ 2개 + SO₄²⁻ 1개 = 3개.','K_2SO_4'),
+Q(5,'Which ions make up Ca(NO_3)_2?','Ca(NO₃)₂를 이루는 이온은?',['1 Ca^{2+} + 2 NO_3^{−}','2 Ca^{2+} + 1 NO_3^{−}','1 Ca^{2+} + 1 NO_3^{−}','1 Ca^{2+} + 3 NO^{−}'],'The 2 after the bracket means two nitrate ions.','괄호 뒤 2 = 질산 이온 2개.','Ca(NO_3)_2'),
+Q(5,'What is the English name of K_2S?','K₂S의 영어 이름은?',['Potassium sulfide','Sulfide potassium','Potassium sulfate','Potassium sulfur'],'Positive ion first, then root + -ide.','양이온 먼저, 음이온은 -ide.','K_2S'),
+Q(5,'What is the Korean name of MgF_2?','MgF₂의 한국어 이름은?',['플루오린화 마그네슘','마그네슘 플루오린화','플루오린 마그네슘','마그네슘 플루오린'],'Korean puts the negative ion first.','한국어는 음이온 먼저.','MgF_2'),
+Q(5,'What is the name of Na_2SO_4?','Na₂SO₄의 이름은?',['Sodium sulfate (황산 나트륨)','Sodium sulfide (황화 나트륨)','Sulfate sodium (나트륨 황산)','Sodium sulfur (황 나트륨)'],'SO_4^{2−} is sulfate; S^{2−} is sulfide.','SO₄²⁻ = 황산, S²⁻ = 황화.','Na_2SO_4'),
+Q(5,'What is the formula of calcium carbonate (탄산 칼슘)?','탄산 칼슘의 화학식은?',['CaCO_3','Ca_2CO_3','Ca(CO_3)_2','CaCO'],'Ca^{2+} + CO_3^{2−} → 1 : 1.','Ca²⁺ + CO₃²⁻ → 1 : 1.'),
+Q(5,'What is the formula of potassium oxide (산화 칼륨)?','산화 칼륨의 화학식은?',['K_2O','KO','KO_2','K_2O_2'],'2 K^{+} + 1 O^{2−} = 0.','K⁺ 2개 + O²⁻ 1개.'),
+Q(5,'What is the formula of calcium hydroxide (수산화 칼슘)?','수산화 칼슘의 화학식은?',['Ca(OH)_2','CaOH','CaOH_2','Ca_2OH'],'1 Ca^{2+} + 2 OH^{−}, with OH in brackets.','Ca²⁺ 1개 + OH⁻ 2개, 괄호 사용.'),
+Q(5,'MgO has a total charge of 0. What does that mean?','MgO의 전하 합이 0인 까닭은?',['The +2 and −2 cancel; the ions are still inside','There are no ions inside at all','Mg and O lost all their electrons','MgO is made of molecules'],'Mg^{2+} and O^{2−} are still there; their charges cancel.','이온은 여전히 존재, 전하가 상쇄된 것.','MgO'),
+/* ---------- Ⅰ-1 Physical vs Chemical Changes ---------- */
+Q(6,'Which is a chemical change?','화학 변화에 해당하는 것은?',['Iron rusting','Ice melting','Salt being ground','Ink spreading in water'],'Rusting makes a new reddish substance. Ink spreading is just mixing.','철이 녹슬면 새로운 물질이 생긴다.'),
+Q(6,'In a physical change, what stays the same?','물리 변화에서 변하지 않는 것은?',['The kind of substance','The shape of the object','The state (solid, liquid, gas)','The size of the pieces'],'Shape, size and state can change; the substance and its properties stay.','물질의 종류(고유한 성질)는 변하지 않음.'),
+Q(6,'Dilute HCl is dropped on the ash of a burned Mg ribbon. What happens?','연소 후 남은 재에 묽은 염산을 떨어뜨리면?',['No gas bubbles form','Many gas bubbles form','It turns shiny again','It changes into silver'],'The ash is magnesium oxide, a new substance that gives no gas with HCl.','재는 산화 마그네슘(새 물질) — 기체가 생기지 않음.'),
+Q(6,'In the H_2O_2 activity, a glowing splint flares up. Which gas formed?','향의 불씨가 다시 타오르게 한 기체는?',['Oxygen','Hydrogen','Carbon dioxide','Nitrogen'],'H_2O_2 → water + oxygen; oxygen helps burning. Hydrogen burns with a “pop”.','과산화 수소 → 물 + 산소, 산소는 연소를 도움.'),
+Q(6,'Which observation shows that NaCl and AgNO_3 solutions had a chemical change?','염화 나트륨과 질산 은 수용액의 화학 변화 증거는?',['A new white solid appears','The liquids mix together evenly','The total volume increases','The drops spread out on the plate'],'A white precipitate (silver chloride) that was not there before.','흰색 앙금(염화 은)이 새로 생김.'),
+Q(6,'In which change are atoms rearranged into new molecules?','원자의 배열이 달라져 새로운 분자가 생기는 변화는?',['Hydrogen peroxide decomposing','Sugar dissolving in warm water','Water boiling in a kettle','An ice cube melting'],'H_2O_2 → H_2O + O_2. The others keep the same molecules.','H₂O₂ → H₂O + O₂: 원자 배열이 바뀜.'),
+Q(6,'Which is a physical change?','물리 변화에 해당하는 것은?',['Sugar dissolving in water','Paper burning','A peeled apple turning brown','An egg frying'],'Sugar molecules spread out but stay sugar; you can get it back by evaporating.','설탕 분자는 그대로 퍼짐 → 물리 변화.'),
+Q(6,'Kimchi turning sour is a…','김치가 시어지는 것은?',['Chemical change, new substances form','Physical change, only the shape changes','Physical change, only the state changes','No change at all'],'New substances (acids) form, so the taste changes.','새로운 물질이 생겨 맛이 변함.'),
+Q(6,'Bending a magnesium ribbon is a…','마그네슘 리본을 구부리는 것은?',['Physical change, its colour, luster and reaction with HCl stay','Chemical change, its shape changes','Chemical change, it gives off light','Physical change, it turns into white powder'],'Bent Mg is still shiny and still fizzes with HCl.','구부려도 색·광택·염산과의 반응 그대로.'),
+Q(6,'What are the bubbles in boiling water?','물이 끓을 때 생기는 기포는?',['Water vapour, no new substance','Hydrogen gas','Oxygen gas','Carbon dioxide'],'Boiling bubbles are still H_2O, so boiling is physical.','끓음의 기포는 수증기 → 물리 변화.'),
+Q(6,'Baking soda + vinegar fizz. What is the evidence and type of change?','베이킹 소다 + 식초가 부글거릴 때 증거와 변화는?',['Gas, chemical change','Precipitate, chemical change','Colour change, physical change','No evidence, physical change'],'A new gas forms.','새로운 기체 발생 → 화학 변화.'),
+Q(6,'White scale forms inside an old kettle. What is the evidence?','전기 주전자 속 흰색 물질의 증거는?',['Precipitate, chemical change','Gas, chemical change','Smell change, physical change','No evidence, physical change'],'A new solid (precipitate) formed.','앙금 생성 → 화학 변화.'),
+Q(6,'A silver spoon turns black in air. What is the evidence?','은 숟가락이 검게 변할 때 증거는?',['Colour change, chemical change','Gas, chemical change','Precipitate, physical change','No evidence, physical change'],'A new black substance forms on the surface.','색 변화 → 화학 변화.'),
+Q(6,'Making bread: yeast makes CO_2 and the dough rises. Which type of change?','빵 만들기: 효모가 CO₂를 만들어 반죽이 부푼다.',['Chemical, a new gas is made','Physical, only the shape changes','Physical, only mixing','Physical, only the state changes'],'Yeast makes new CO_2 gas.','효모가 새로운 기체(CO₂)를 만듦.'),
+Q(6,'Making bread: cutting the dough into pieces. Which type of change?','빵 만들기: 반죽을 자르는 것은?',['Physical, only size and shape change','Chemical, a new substance forms','Chemical, the colour changes','Chemical, gas is given off'],'Only size and shape change.','크기·모양만 변함.'),
+Q(6,'Making bread: baking until the crust turns brown. Which type of change?','빵 만들기: 겉이 갈색이 될 때까지 굽기는?',['Chemical, brown crust and new smell','Physical, only the state changes','Physical, only the shape changes','Physical, water evaporates only'],'New substances give a brown colour and a new smell (Maillard reaction).','갈색·새 냄새 → 새 물질(마이야르 반응).'),
+Q(6,'What happens when a candle burns?','양초가 탈 때 일어나는 변화는?',['Both: wax melts (physical) and burns (chemical)','Only a physical change','Only a chemical change','No change, the wax just disappears'],'Melting is physical; the burning wax vapour makes CO_2 and water (chemical).','녹음 = 물리, 연소 = 새 물질 생성(화학).'),
+Q(6,'In a physical change, what happens to the molecules?','물리 변화에서 분자는?',['They stay the same; only spacing or arrangement changes','Atoms are rearranged into new molecules','The molecules disappear','New elements form'],'In a chemical change, atoms are rearranged into new molecules.','화학 변화에서만 원자 배열이 바뀜.'),
+Q(6,'Ink spreads in water and the colour looks different. What type of change?','잉크가 물에 퍼져 색이 달라 보이는 것은?',['Physical, it is just mixing','Chemical, the colour changed','Chemical, a gas formed','Chemical, a precipitate formed'],'A colour change from mixing is not a new substance.','섞여서 색이 달라 보이는 것은 물리 변화.'),
+Q(6,'In Activity 2, what is the white solid that forms?','염화 나트륨 + 질산 은에서 생기는 흰색 앙금은?',['Silver chloride (AgCl)','Sodium chloride (NaCl)','Silver nitrate (AgNO_3)','Sodium nitrate (NaNO_3)'],'Ag^{+} + Cl^{−} → AgCl, a white precipitate.','Ag⁺ + Cl⁻ → AgCl(염화 은).'),
+Q(6,'What does hydrogen peroxide (H_2O_2) break down into?','과산화 수소가 분해되면?',['Water and oxygen','Water and hydrogen','Hydrogen and oxygen only','Carbon dioxide and water'],'2H_2O_2 → 2H_2O + O_2.','과산화 수소 → 물 + 산소.','H_2O_2')
+];
+const BANK=(()=>{const n={};return BANK_RAW.map(x=>{n[x.u]=(n[x.u]||0)+1;return{...x,id:x.u*100+n[x.u]}})})();
+const BANK_BY_ID=Object.fromEntries(BANK.map(x=>[x.id,x]));
+function rich(s){return esc(s).replace(/_(\d+)/g,'<sub>$1</sub>').replace(/\^\{([^}]*)\}/g,'<sup>$1</sup>')}
+/* Choose 3 questions for a match: from the chosen units, avoiding questions either player already had
+   in this tournament, spread over different units when possible. */
+function pickQids(g,a,b,seed){
+  const units=g.units||ALLUNITS;
+  let pool=BANK.filter(q=>units[q.u]);if(!pool.length)pool=BANK;
+  const used=new Set();
+  for(const m of Object.values(D.matches))if(m.tid===g.tid&&Array.isArray(m.qids)&&(m.a===a||m.b===a||m.a===b||m.b===b))m.qids.forEach(x=>used.add(x));
+  let cand=pool.filter(q=>!used.has(q.id));if(cand.length<QN)cand=pool;
+  const order=withSeed(hashStr(seed),()=>shuffle(cand));
+  const pick=[],seenU=new Set();
+  for(const q of order){if(pick.length>=QN)break;if(!seenU.has(q.u)){pick.push(q);seenU.add(q.u)}}
+  for(const q of order){if(pick.length>=QN)break;if(!pick.includes(q))pick.push(q)}
+  return pick.map(q=>q.id);
 }
-function quizFor(m){return withSeed(hashStr('q:'+m.id),()=>{const used=new Set();return [0,1,2].map(()=>genQuestion(m.types||ALLTYPES,used))})}
+function quizFor(m){
+  let ids=Array.isArray(m.qids)?m.qids.filter(id=>BANK_BY_ID[id]):[];
+  if(ids.length<QN)ids=pickQids({tid:m.tid,units:m.units},m.a,m.b,'fallback:'+m.id);
+  return ids.slice(0,QN).map((id,k)=>{
+    const it=BANK_BY_ID[id];
+    const order=withSeed(hashStr(m.id+':'+id),()=>shuffle([0,1,2,3].slice(0,it.o.length)));
+    return{id,unit:it.u,prompt:rich(it.q),ko:esc(it.ko),stage:it.s?`<div class="big">${`<span class="fx">${rich(it.s)}</span>`}</div>`:'',
+      options:order.map(i=>`<span class="opt-en">${rich(it.o[i])}</span>`),answer:order.indexOf(0),
+      explain:`${rich(it.ex)}<span class="ko">${rich(it.exko)}</span>`};
+  });
+}
+
 
 /* ================= constants ================= */
 const QN=3,BASE=32,BONUS_PCT=40,BONUS=BASE*BONUS_PCT/100,PFIELD=300;
@@ -579,7 +655,7 @@ function pairGroup(g,key,lo,ps,byes){
   const mids=[],matches=[];
   for(let i=0;i<order.length;i+=2){
     const mid=`${g.tid}-${key}-m${i/2}`;mids.push(mid);
-    matches.push([mid,{tid:g.tid,gk:key,r:key.length-1,i:i/2,lo,n:ps.length,a:order[i],b:order[i+1],w:null,status:'quiz',score:[0,0],types:g.types||ALLTYPES,win:g.win||11,qtime:g.qtime||20,at:Date.now()}]);
+    matches.push([mid,{tid:g.tid,gk:key,r:key.length-1,i:i/2,lo,n:ps.length,a:order[i],b:order[i+1],w:null,status:'quiz',score:[0,0],qids:pickQids(g,order[i],order[i+1],g.tid+':q:'+mid),units:g.units||ALLUNITS,win:g.win||11,qtime:g.qtime||20,at:Date.now()}]);
   }
   return{mids,bye,matches};
 }
@@ -632,8 +708,8 @@ async function hostStart(){
   finally{advancing=false}
 }
 async function hostNewLobby(){
-  const types=(D.game&&D.game.types)||ALLTYPES;
-  try{await C.db.ref().update({game:{tid:newTid(),status:'lobby',types,at:Date.now()},players:null,matches:null,quiz:null,live:null})}catch(e){toast('Couldn’t open the lobby. · 대기실을 열지 못했습니다.')}
+  const G0=D.game||{};const units=G0.units||ALLUNITS,keep={win:G0.win||11,qtime:G0.qtime||20,rank:G0.rank!==false};
+  try{await C.db.ref().update({game:{tid:newTid(),status:'lobby',units,...keep,at:Date.now()},players:null,matches:null,quiz:null,live:null})}catch(e){toast('Couldn’t open the lobby. · 대기실을 열지 못했습니다.')}
 }
 async function award(mid,side){
   const m=D.matches[mid];if(!m)return;
@@ -656,7 +732,7 @@ function topbar(){
   const mine=D.players.find(p=>p.uid===C.uid);
   if(C.isHost)me=`<div class="me"><span><b>Teacher</b><span class="role">Host device · 진행자</span></span></div>`;
   else if(mine)me=`<div class="me"><span><b>${esc(mine.name)}</b><span class="role">Student · 학생</span></span></div>`;
-  return `<header class="top"><div class="brand">${brandMark()}<div><p class="eyebrow">Grade 9 Science · Atoms, Molecules & Ions</p><h1>Particle Duel</h1><p>원자 · 분자 · 이온 1대1 퐁 토너먼트</p></div></div>${me}</header>`;
+  return `<header class="top"><div class="brand">${brandMark()}<div><p class="eyebrow">Grade 9 Science · Structure of Matter</p><h1>Particle Duel</h1><p>물질의 구성 · 화학 변화 1대1 퐁 토너먼트</p></div></div>${me}</header>`;
 }
 const studentLink=()=>location.origin+location.pathname;
 function linkBox(){return `<div class="linkbox"><code id="slink">${esc(studentLink())}</code><button class="btn sm" id="copy" type="button">Copy · 복사</button></div>`}
@@ -697,8 +773,9 @@ function hostClaimView(){
 function segBox(key,label,opts,cur,fmtv){
   return `<div class="setrow"><span class="lbl">${label}</span><div class="seg" role="radiogroup" aria-label="${label}">${opts.map(v=>`<label><input type="radio" name="${key}" id="${key}-${v}" value="${v}" ${v===cur?'checked':''}><span>${fmtv(v)}</span></label>`).join('')}</div></div>`;
 }
-function typesBox(g){
-  return `<div class="types">${Object.entries(TYPES).map(([k,[en,ko]])=>`<label class="chk"><input type="checkbox" id="ty-${k}" data-k="${k}" ${(g.types||ALLTYPES)[k]?'checked':''}><span><b>${en}</b><small>${ko}</small></span></label>`).join('')}</div>`;
+function unitsBox(g){
+  const cnt={};BANK.forEach(q=>{cnt[q.u]=(cnt[q.u]||0)+1});
+  return `<div class="types">${Object.entries(UNITS).map(([k,[en,ko,code]])=>`<label class="chk"><input type="checkbox" id="un-${k}" data-k="${k}" ${(g.units||ALLUNITS)[k]?'checked':''}><span><b>${code} ${en}</b><small>${ko} · ${cnt[k]||0} questions</small></span></label>`).join('')}</div>`;
 }
 function hostOpenView(){
   return `<section class="status go"><div><h2>Start a class tournament · 대회 열기</h2><p>Open the lobby, then have students open this page on their own devices and tap Join. · 대기실을 열고 학생들이 각자 기기로 접속해 참가하게 하세요.</p></div><div class="acts"><button class="btn primary big" id="open">Open lobby · 대기실 열기</button></div></section>`;
@@ -718,7 +795,7 @@ function lobbyView(g){
       <p class="note">Share this link with students (without <b>?host</b>). Keep this page open: it draws each new round automatically. · 학생에게 아래 링크를 공유하고, 이 화면을 켜 두세요.</p>${linkBox()}
       <h2>Match settings <span class="ko">경기 설정</span></h2>${segBox('win','Points to win · 승리 점수',WIN_OPTS,gWin(),v=>v+'점')}${segBox('qtime','Time per question · 문제당 시간',QT_OPTS,gQt(),v=>v+'초')}
       <label class="chk"><input type="checkbox" id="ranktoggle" ${rankOn(g)?'checked':''}><span><b>Ranking matches · 순위결정전</b><small>Winners play winners and losers play losers until every player has a final place. Off: lose once and you’re out. · 이긴 사람끼리, 진 사람끼리 계속 겨뤄 모든 학생의 순위를 정합니다. 끄면 한 번 지면 탈락.</small></span></label>
-      <h2>Question types <span class="ko">문제 유형</span></h2>${typesBox(g)}
+      <h2>Lessons <span class="ko">출제 단원</span></h2>${unitsBox(g)}
       <div class="plan">${n>=2?`${n} players · ${pl.rounds} round${pl.rounds>1?'s':''} · ${rankOn(g)?`up to ${pl.rounds} matches each, places 1–${n} decided · 1인당 최대 ${pl.rounds}경기, 1–${n}위까지 결정`:`single elimination · 한 번 지면 탈락`}`:'Need at least 2 players · 최소 2명'}</div>
       <button class="btn primary big" id="start" ${n<2?'disabled':''}>Start tournament · 토너먼트 시작</button>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm ghost" id="reset">Clear lobby · 대기실 초기화</button><button class="btn sm ghost" id="release">Release host · 진행자 해제</button></div></section>`;
@@ -821,7 +898,7 @@ function wireHome(){
   document.querySelectorAll('input[name=win],input[name=qtime]').forEach(r=>r.addEventListener('change',()=>{if(r.checked)writeDoc('game',{[r.name]:+r.value},'update')}));
   const rkt=$('#ranktoggle');if(rkt)rkt.addEventListener('change',()=>writeDoc('game',{rank:rkt.checked},'update'));
   document.querySelectorAll('[data-kick]').forEach(b=>b.addEventListener('click',()=>leaveLobby(b.dataset.kick)));
-  document.querySelectorAll('.types input').forEach(c=>c.addEventListener('change',()=>{const t={...((D.game&&D.game.types)||ALLTYPES),[c.dataset.k]:c.checked};if(!Object.values(t).some(Boolean)){c.checked=true;toast('Keep at least one question type. · 문제 유형을 하나 이상 선택하세요.');return}writeDoc('game',{types:t},'update')}));
+  document.querySelectorAll('.types input').forEach(c=>c.addEventListener('change',()=>{const t={...((D.game&&D.game.units)||ALLUNITS),[c.dataset.k]:c.checked};if(!Object.values(t).some(Boolean)){c.checked=true;toast('Keep at least one lesson. · 출제 단원을 하나 이상 선택하세요.');return}writeDoc('game',{units:t},'update')}));
   document.querySelectorAll('[data-watch]').forEach(b=>b.addEventListener('click',()=>openMatch(b.dataset.watch,true)));
   document.querySelectorAll('[data-play]').forEach(b=>b.addEventListener('click',()=>openMatch(b.dataset.play,false)));
   document.querySelectorAll('[data-award]').forEach(b=>twoStep(b,'Confirm · 확인',()=>award(b.dataset.award,+b.dataset.side)));
@@ -924,10 +1001,10 @@ function buildQuiz(){
 function showQ(){
   const q=MV.q,item=q.qs[q.idx];
   q.locked=false;q.deadline=Date.now()+q.qt;
-  $('#qbox').innerHTML=`<div class="qtop"><span>Question ${q.idx+1} / ${QN} · ${TYPES[item.type][0]}</span><span class="tnum" id="tnum">${Math.round(q.qt/1000)}</span></div>
+  $('#qbox').innerHTML=`<div class="qtop"><span>Question ${q.idx+1} / ${QN} · ${UNITS[item.unit][2]} ${UNITS[item.unit][0]}</span><span class="tnum" id="tnum">${Math.round(q.qt/1000)}</span></div>
     <div class="tbar" id="tbarw"><i id="tbar"></i></div>
     <h3 class="prompt">${item.prompt}</h3><p class="prompt-ko">${item.ko}</p>
-    <div class="stage">${item.stage}</div>
+    ${item.stage?`<div class="stage">${item.stage}</div>`:''}
     <div class="qopts">${item.options.map((o,i)=>`<button class="qopt" data-i="${i}"><span class="k">${i+1}</span><span class="lab">${o}</span></button>`).join('')}</div>
     <div class="fb" id="fb" hidden></div>`;
   document.querySelectorAll('.qopt').forEach(b=>b.addEventListener('click',()=>answerQ(+b.dataset.i)));
